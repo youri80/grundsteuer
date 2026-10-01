@@ -1,0 +1,75 @@
+@page "/personen"
+@using GrundsteuerPortal.Core.Api
+@using GrundsteuerPortal.Web.Components.Shared
+@inject GrundsteuerPortal.Web.Services.BestandsService Bestand
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Personen – GrundsteuerPortal</PageTitle>
+
+<div class="seitenkopf">
+    <div>
+        <MudText Typo="Typo.h4">Personen</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary">
+            Natürliche und juristische Personen – als Eigentümer von Wirtschaftseinheiten und als
+            meldende Stelle wiederverwendbar.
+        </MudText>
+    </div>
+    <div class="seitenkopf-aktionen">
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Refresh"
+                   OnClick="LadenAsync">Aktualisieren</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="/personen/neu">Neue Person</MudButton>
+    </div>
+</div>
+
+@if (_laedt)
+{
+    <MudProgressLinear Indeterminate="true" Class="mt-2" />
+}
+
+<MudDataGrid T="PersonUebersichtDto" Items="_personen" Hover="true" Striped="true"
+             Dense="false" Breakpoint="Breakpoint.Md" aria-label="Personen">
+    <Columns>
+        <PropertyColumn Property="p => p.AnzeigeName" Title="Name" Sortable="true">
+            <CellTemplate>
+                <MudText Typo="Typo.body2">@context.Item.AnzeigeName</MudText>
+                <MudText Typo="Typo.caption" Class="text-secondary">@context.Item.Art.AnzeigeName()</MudText>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="p => p.Ort" Title="Ort" Sortable="true" />
+        <PropertyColumn Property="p => p.Status" Title="Status" Sortable="true">
+            <CellTemplate>
+                <MudText Typo="Typo.body2" Color="@(context.Item.Status == PersonStatus.Aktiv ? Color.Success : Color.Default)">
+                    @context.Item.Status.AnzeigeName()
+                </MudText>
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn>
+            <CellTemplate>
+                <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Edit"
+                           Href="@($"/personen/{context.Item.Id}")">Bearbeiten</MudButton>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    private List<PersonUebersichtDto> _personen = new();
+    private bool _laedt;
+
+    protected override async Task OnInitializedAsync() => await LadenAsync();
+
+    private async Task LadenAsync()
+    {
+        _laedt = true;
+        try
+        {
+            _personen = await Bestand.GetPersonenAsync();
+        }
+        finally
+        {
+            _laedt = false;
+        }
+    }
+}

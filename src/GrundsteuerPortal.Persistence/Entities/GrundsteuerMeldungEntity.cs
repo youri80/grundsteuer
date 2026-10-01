@@ -43,6 +43,21 @@ public class GrundsteuerMeldungEntity
     /// <summary>Ordnungskriterium in BE, HB, HH, SH.</summary>
     public string? Steuernummer { get; set; }
 
+    // ---- Herkunft (wirtschaftseinheit-zentrisches Modell) -----------------------------------
+    /// <summary>
+    /// Herkunfts-Einheit, aus der diese Meldung erzeugt wurde. Nur eine Referenz: die Meldung ist
+    /// ein Snapshot und bleibt eigenständig, auch wenn sich die Einheit später ändert.
+    /// </summary>
+    public Guid? WirtschaftseinheitId { get; set; }
+    public WirtschaftseinheitEntity? Wirtschaftseinheit { get; set; }
+
+    /// <summary>Meldende Stelle (freier Verweis auf eine Person, auch Nicht-Eigentümer).</summary>
+    public Guid? MeldendePersonId { get; set; }
+    public PersonEntity? MeldendePerson { get; set; }
+
+    /// <summary>Snapshot des Anzeigenamens der meldenden Stelle (für die Übersicht ohne Join).</summary>
+    public string? MeldendePersonName { get; set; }
+
     // ---- Schritt 2: Grundstücksdaten --------------------------------------------------------
     public string Gemarkung { get; set; } = string.Empty;
     public string? Gemarkungsnummer { get; set; }

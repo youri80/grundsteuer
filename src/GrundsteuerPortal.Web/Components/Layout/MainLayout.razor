@@ -44,7 +44,11 @@
 
     <MudDrawer @bind-Open="_drawerOffen" ClipMode="DrawerClipMode.Always" Elevation="1" Breakpoint="Breakpoint.Md">
         <MudNavMenu Class="pa-2">
-            <MudText Typo="Typo.overline" Class="px-4 pt-3 pb-1 nav-abschnitt">Erfassung</MudText>
+            <MudText Typo="Typo.overline" Class="px-4 pt-3 pb-1 nav-abschnitt">Bestand</MudText>
+            <MudNavLink Href="/personen" Icon="@Icons.Material.Outlined.People">Personen</MudNavLink>
+            <MudNavLink Href="/wirtschaftseinheiten" Icon="@Icons.Material.Outlined.HomeWork">Wirtschaftseinheiten</MudNavLink>
+
+            <MudText Typo="Typo.overline" Class="px-4 pt-4 pb-1 nav-abschnitt">Erfassung</MudText>
             <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Übersicht</MudNavLink>
             <MudNavLink Href="/grundsteuer/neu" Icon="@Icons.Material.Filled.AddCircleOutline">Neue Meldung</MudNavLink>
 

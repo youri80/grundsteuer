@@ -80,6 +80,16 @@ public sealed class GrundsteuerMeldungDto
 
     public string? Steuernummer { get; set; }
 
+    // ---- Herkunft (wirtschaftseinheit-zentrisches Modell) -----------------------------------
+    /// <summary>Herkunfts-Einheit, aus der diese Meldung erzeugt wurde (Snapshot).</summary>
+    public Guid? WirtschaftseinheitId { get; set; }
+
+    /// <summary>Meldende Stelle (freier Verweis auf eine Person, auch Nicht-Eigentümer).</summary>
+    public Guid? MeldendePersonId { get; set; }
+
+    /// <summary>Snapshot des Anzeigenamens der meldenden Stelle.</summary>
+    public string? MeldendePersonName { get; set; }
+
     // ---- Schritt 2: Grundstücksdaten ---------------------------------------------------------
     public string Gemarkung { get; set; } = string.Empty;
     public string? Gemarkungsnummer { get; set; }
@@ -281,4 +291,148 @@ public sealed class PlzZuordnungDto
     public string Postleitzahl { get; set; } = string.Empty;
     public string Ort { get; set; } = string.Empty;
     public Bundesland Bundesland { get; set; }
+}
+
+// =============================================================================================
+//  Wirtschaftseinheit-zentrisches Modell: Person (Master) + Wirtschaftseinheit (Bestand).
+//  Die Meldung bleibt ein Vorgang, der sich auf eine Einheit bezieht (Snapshot).
+// =============================================================================================
+
+/// <summary>
+/// Ein Eigentümer-Anteil an einer Wirtschaftseinheit: verweist auf eine Person und trägt den
+/// Anteil (Miteigentum 1/2 + 1/2). Die Person selbst ist ein wiederverwendbarer Master.
+/// </summary>
+public sealed class EinheitEigentuemerDto
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>Verweis auf die Person (Master).</summary>
+    public Guid PersonId { get; set; }
+
+    /// <summary>Eigentumsanteil (1 = allein, 0,5 = hälftig).</summary>
+    public decimal Anteil { get; set; } = 1m;
+
+    // Anzeige-Hilfen werden beim Laden aus der Person befüllt (kein zusätzlicher Join in der UI).
+    public string AnzeigeName { get; set; } = string.Empty;
+    public EigentuemerArt Art { get; set; } = EigentuemerArt.NatuerlichePerson;
+}
+
+/// <summary>
+/// Eine natürliche oder juristische Person als wiederverwendbarer Master. Eine Person kann
+/// Eigentümer mehrerer Wirtschaftseinheiten (auch in verschiedenen Bundesländern) sein und als
+/// meldende Stelle beliebiger Meldungen auftreten - auch ohne je Eigentümer zu sein
+/// (z. B. eine Steuerberatungs-GmbH).
+/// </summary>
+public sealed class PersonDto
+{
+    public Guid Id { get; set; }
+    public byte[]? RowVersion { get; set; }
+
+    public PersonStatus Status { get; set; } = PersonStatus.Aktiv;
+
+    public EigentuemerArt Art { get; set; } = EigentuemerArt.NatuerlichePerson;
+    public Anrede Anrede { get; set; } = Anrede.Keine;
+
+    /// <summary>Nachname bei natürlichen Personen, sonst vollständiger Firmenname.</summary>
+    public string Name { get; set; } = string.Empty;
+    public string? Vorname { get; set; }
+
+    /// <summary>11-stellige Steueridentifikationsnummer (§ 139 AO) - wird nicht im Klartext gespeichert.</summary>
+    public string? IdNummer { get; set; }
+
+    public string? Steuernummer { get; set; }
+    public string Strasse { get; set; } = string.Empty;
+    public string Hausnummer { get; set; } = string.Empty;
+    public string Postleitzahl { get; set; } = string.Empty;
+    public string Ort { get; set; } = string.Empty;
+    public string? Land { get; set; } = "Deutschland";
+    public DateTime? Geburtsdatum { get; set; }
+
+    public string AnzeigeName => Art == EigentuemerArt.NatuerlichePerson
+        ? string.Join(' ', new[] { Vorname, Name }.Where(t => !string.IsNullOrWhiteSpace(t)))
+        : Name;
+}
+
+/// <summary>Zeile in der Personen-Übersicht.</summary>
+public sealed class PersonUebersichtDto
+{
+    public Guid Id { get; set; }
+    public PersonStatus Status { get; set; }
+    public EigentuemerArt Art { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Vorname { get; set; }
+    public string Ort { get; set; } = string.Empty;
+
+    public string AnzeigeName => Art == EigentuemerArt.NatuerlichePerson
+        ? string.Join(' ', new[] { Vorname, Name }.Where(t => !string.IsNullOrWhiteSpace(t)))
+        : Name;
+}
+
+/// <summary>
+/// Eine Wirtschaftseinheit: der stabile Grundstücks-Bestand (Lage, Flurstücke, Eigentümer,
+/// Flächen, zuständiges Finanzamt). Aus ihr werden bei Bedarf Meldungen erzeugt (Snapshot).
+/// </summary>
+public sealed class WirtschaftseinheitDto
+{
+    public Guid Id { get; set; }
+    public byte[]? RowVersion { get; set; }
+
+    public EinheitStatus Status { get; set; } = EinheitStatus.Aktiv;
+
+    public Bundesland Bundesland { get; set; } = Bundesland.Hessen;
+
+    /// <summary>Bundesfinanzamtsnummer des Lage-Finanzamts.</summary>
+    public string? Bundesfinanzamtsnummer { get; set; }
+    public string? FinanzamtName { get; set; }
+
+    public string Gemarkung { get; set; } = string.Empty;
+    public string? Gemarkungsnummer { get; set; }
+    public string? Flur { get; set; }
+    public string? FlurstueckZaehler { get; set; }
+    public string? FlurstueckNenner { get; set; }
+    public string? Grundbuchblatt { get; set; }
+    public Grundstuecksart Grundstuecksart { get; set; } = Grundstuecksart.Einfamilienhaus;
+    public decimal? Grundstuecksflaeche { get; set; }
+    public decimal? Wohnflaeche { get; set; }
+    public decimal? Nutzflaeche { get; set; }
+    public int? Baujahr { get; set; }
+    public decimal? Bodenrichtwert { get; set; }
+    public decimal? DurchschnittlicherBodenrichtwert { get; set; }
+    public Wohnlage? Wohnlage { get; set; }
+    public bool IstDenkmalgeschuetzt { get; set; }
+    public bool IstSozialerWohnungsbau { get; set; }
+
+    public AdresseDto Lage { get; set; } = new();
+    public List<FlurstueckDto> Flurstuecke { get; set; } = new();
+    public List<EinheitEigentuemerDto> Eigentuemer { get; set; } = new();
+
+    public BundeslandInfo BundeslandInfo => BundeslandKatalog.Fuer(Bundesland);
+
+    /// <summary>Gibt es aktuell eine aktive (noch nicht abgeschlossene) Meldung zu dieser Einheit?</summary>
+    public bool HatAktiveMeldung { get; set; }
+
+    public string AnzeigeName => string.Join(", ",
+        new[] { Gemarkung, string.IsNullOrWhiteSpace(Flur) ? null : $"Flur {Flur}" }
+        .Where(t => !string.IsNullOrWhiteSpace(t)));
+}
+
+/// <summary>Zeile in der Wirtschaftseinheiten-Übersicht.</summary>
+public sealed class WirtschaftseinheitUebersichtDto
+{
+    public Guid Id { get; set; }
+    public EinheitStatus Status { get; set; }
+    public Bundesland Bundesland { get; set; }
+    public string Gemarkung { get; set; } = string.Empty;
+    public string? Flur { get; set; }
+    public string Strasse { get; set; } = string.Empty;
+    public string Hausnummer { get; set; } = string.Empty;
+    public string Ort { get; set; } = string.Empty;
+    public string HauptEigentuemer { get; set; } = string.Empty;
+    public int AnzahlEigentuemer { get; set; }
+    public int AnzahlFlurstuecke { get; set; }
+    public DateTime ZuletztGeaendertAm { get; set; }
+
+    public string AnzeigeName => string.Join(", ",
+        new[] { Gemarkung, string.IsNullOrWhiteSpace(Flur) ? null : $"Flur {Flur}" }
+        .Where(t => !string.IsNullOrWhiteSpace(t)));
 }

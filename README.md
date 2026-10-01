@@ -139,6 +139,25 @@ Das Schema entsteht beim ersten Start über `EnsureCreatedAsync`. Das ändert ei
 Schema nicht — sobald sich das Modell ändert, ist auf Migrationen umzustellen (Anleitung in
 `src/GrundsteuerPortal.Persistence/README.md`).
 
+## Wirtschaftseinheit-zentrisches Datenmodell
+
+Neben der Meldung gibt es zwei eigenständige Bestandsentitäten mit eigenen Pflegemasken:
+
+- **Personen** (`/personen`) — natürliche und juristische Personen als wiederverwendbarer Master.
+  Eine Person kann Eigentümer mehrerer Wirtschaftseinheiten (auch in verschiedenen Bundesländern)
+  sein und als meldende Stelle beliebiger Meldungen auftreten. Die Steuer-IdNr wird nur als Hash
+  gespeichert.
+- **Wirtschaftseinheiten** (`/wirtschaftseinheiten`) — der stabile Grundstücks-Bestand (Lage,
+  Flurstücke, Eigentümer mit Anteilen, Flächen, zuständiges Finanzamt).
+
+Aus einer Wirtschaftseinheit wird bei Bedarf eine **Meldung** erzeugt (`Meldung erstellen`): ein
+Stand-jetzt-Snapshot mit frei wählbarer meldender Stelle (vorgeschlagen wird der erste Eigentümer,
+z. B. kann aber auch eine Steuerberatungs-GmbH senden). Es darf nur **eine aktive Meldung** je
+Einheit geben. Der klassische Weg über den Meldungs-Wizard (`/grundsteuer/neu`) bleibt unverändert
+erhalten.
+
+Das Konzept ist in `docs/konzept-wirtschaftseinheit-zentrisch.md` dokumentiert.
+
 ## Tests
 
 Das Testprojekt gehört nicht ins Image (per `.dockerignore` ausgeschlossen). Es läuft auf dem

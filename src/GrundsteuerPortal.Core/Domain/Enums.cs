@@ -112,6 +112,20 @@ public enum MeldungStatus
     [Display(Name = "Storniert")] Storniert = 6
 }
 
+/// <summary>Lebenszyklus einer Wirtschaftseinheit (Bestand). Archiviert = nicht mehr meldbar.</summary>
+public enum EinheitStatus
+{
+    [Display(Name = "Aktiv")] Aktiv = 0,
+    [Display(Name = "Archiviert")] Archiviert = 1
+}
+
+/// <summary>Lebenszyklus einer Person (Master). Archiviert = nicht mehr neu zuordenbar.</summary>
+public enum PersonStatus
+{
+    [Display(Name = "Aktiv")] Aktiv = 0,
+    [Display(Name = "Archiviert")] Archiviert = 1
+}
+
 /// <summary>Grad eines Validierungshinweises.</summary>
 public enum HinweisSchwere
 {

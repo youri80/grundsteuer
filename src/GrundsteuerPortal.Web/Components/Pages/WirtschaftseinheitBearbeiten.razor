@@ -1,0 +1,255 @@
+@page "/wirtschaftseinheiten/neu"
+@page "/wirtschaftseinheiten/{Id:guid}"
+@using GrundsteuerPortal.Core.Api
+@using GrundsteuerPortal.Core.Domain
+@inject GrundsteuerPortal.Web.Services.BestandsService Bestand
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_istNeu ? "Neue Wirtschaftseinheit" : "Wirtschaftseinheit bearbeiten") – GrundsteuerPortal</PageTitle>
+
+<div class="seitenkopf">
+    <div>
+        <MudText Typo="Typo.h4">@(_istNeu ? "Neue Wirtschaftseinheit" : "Wirtschaftseinheit bearbeiten")</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary">
+            Lage, Flurstücke, Eigentümer und Flächen – der Bestand, aus dem Meldungen erzeugt werden.
+        </MudText>
+    </div>
+    <div class="seitenkopf-aktionen">
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="Zurueck">Zurück</MudButton>
+    </div>
+</div>
+
+@if (_ladefehler is not null)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@_ladefehler</MudAlert>
+}
+
+<MudPaper Elevation="0" Class="pa-4">
+    <MudForm>
+        <MudText Typo="Typo.subtitle1" Class="mb-3">Lage &amp; zuständiges Finanzamt</MudText>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="Bundesland" @bind-Value="_einheit.Bundesland" Label="Bundesland" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var land in BundeslandKatalog.Alle.Keys)
+                    {
+                        <MudSelectItem T="Bundesland" Value="@land">@land.AnzeigeName()</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="Grundstuecksart" @bind-Value="_einheit.Grundstuecksart" Label="Grundstücksart" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var art in Enum.GetValues<Grundstuecksart>())
+                    {
+                        <MudSelectItem T="Grundstuecksart" Value="@art">@art.AnzeigeName()</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="EinheitStatus" @bind-Value="_einheit.Status" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var status in Enum.GetValues<EinheitStatus>())
+                    {
+                        <MudSelectItem T="EinheitStatus" Value="@status">@status.AnzeigeName()</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12" sm="8" md="5">
+                <MudTextField @bind-Value="_einheit.Lage.Strasse" Label="Straße" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="4" md="2">
+                <MudTextField @bind-Value="_einheit.Lage.Hausnummer" Label="Nr." Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="6" sm="4" md="2">
+                <MudTextField @bind-Value="_einheit.Lage.Postleitzahl" Label="PLZ" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="5" />
+            </MudItem>
+            <MudItem xs="6" sm="8" md="3">
+                <MudTextField @bind-Value="_einheit.Lage.Ort" Label="Ort" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle1" Class="mb-3 mt-5">Grundstück</MudText>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="4">
+                <MudTextField @bind-Value="_einheit.Gemarkung" Label="Gemarkung" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_einheit.Flur" Label="Flur" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_einheit.FlurstueckZaehler" Label="Flurstück (Zähler)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudTextField @bind-Value="_einheit.FlurstueckNenner" Label="Nenner" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudTextField @bind-Value="_einheit.Grundstuecksflaeche" Label="Grundstücksfläche (m²)" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.End" AdornmentText="m²" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_einheit.Wohnflaeche" Label="Wohnfläche (m²)" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.End" AdornmentText="m²" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="3">
+                <MudTextField @bind-Value="_einheit.Nutzflaeche" Label="Nutzfläche (m²)" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.End" AdornmentText="m²" />
+            </MudItem>
+            <MudItem xs="12" sm="6" md="2">
+                <MudTextField @bind-Value="_einheit.Baujahr" Label="Baujahr" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle1" Class="mb-3 mt-5">Flurstücke</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary mb-3">
+            Die Flurstücke der wirtschaftlichen Einheit. Ohne Flurstück ist die Meldung an das
+            Finanzamt nicht vollständig.
+        </MudText>
+
+        @foreach (var eintrag in _einheit.Flurstuecke.Select((f, i) => new { F = f, Index = i }))
+        {
+            var flurstueck = eintrag.F;
+            var i = eintrag.Index;
+            <MudGrid Spacing="2" Class="align-end mb-2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField @bind-Value="flurstueck.Gemarkung" Label="Gemarkung" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="6" sm="3" md="2">
+                    <MudTextField @bind-Value="flurstueck.Flur" Label="Flur" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="6" sm="3" md="2">
+                    <MudTextField @bind-Value="flurstueck.Zaehler" Label="Zähler" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="6" sm="3" md="2">
+                    <MudTextField @bind-Value="flurstueck.Nenner" Label="Nenner" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="6" sm="3" md="2">
+                    <MudTextField @bind-Value="flurstueck.Flaeche" Label="Fläche (m²)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" md="1">
+                    <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Color="Color.Error"
+                                   OnClick="() => EntferneFlurstueck(flurstueck)"
+                                   aria-label="Flurstück entfernen" />
+                </MudItem>
+            </MudGrid>
+        }
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="FuegeFlurstueckHinzu" Class="mt-1">Flurstück hinzufügen</MudButton>
+
+        <MudText Typo="Typo.subtitle1" Class="mb-3 mt-5">Eigentümer</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary mb-3">
+            Eigentümer aus dem Personen-Bestand zuordnen. Die Summe der Anteile muss 100 % ergeben.
+            Personen legen Sie unter „Personen“ an.
+        </MudText>
+
+        @foreach (var eintrag in _einheit.Eigentuemer.Select((e, i) => new { E = e, Index = i }))
+        {
+            var zuordnung = eintrag.E;
+            var i = eintrag.Index;
+            <MudGrid Spacing="2" Class="align-end mb-2">
+                <MudItem xs="12" sm="6" md="6">
+                    <MudSelect T="Guid" @bind-Value="zuordnung.PersonId" Label="Person"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               ToStringFunc="id => PersonName(id)">
+                        @foreach (var person in _personen)
+                        {
+                            <MudSelectItem T="Guid" Value="@person.Id">@person.AnzeigeName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="6" sm="3" md="3">
+                    <MudNumericField T="decimal" @bind-Value="zuordnung.Anteil" Label="Anteil (1 = allein)"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" Min="0.0001m" Max="1m" Step="0.1m" Format="N4" />
+                </MudItem>
+                <MudItem xs="6" sm="3" md="2">
+                    <MudText Typo="Typo.body2" Class="pt-3">@((zuordnung.Anteil * 100m).ToString("0.##")) %</MudText>
+                </MudItem>
+                <MudItem xs="12" md="1">
+                    <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Color="Color.Error"
+                                   OnClick="() => EntferneEigentuemer(zuordnung)"
+                                   aria-label="Eigentümer entfernen" />
+                </MudItem>
+            </MudGrid>
+        }
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                   OnClick="FuegeEigentuemerHinzu" Class="mt-1">Eigentümer zuordnen</MudButton>
+
+        <div class="d-flex gap-2 mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="SpeichernAsync">Speichern</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="Abbrechen">Abbrechen</MudButton>
+        </div>
+    </MudForm>
+</MudPaper>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private WirtschaftseinheitDto _einheit = new();
+    private List<PersonDto> _personen = new();
+    private bool _istNeu = true;
+    private string? _ladefehler;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _istNeu = Id is null;
+
+        if (_personen.Count == 0)
+        {
+            var personen = await Bestand.GetPersonenAsync();
+            _personen = personen
+                .Where(p => p.Status == PersonStatus.Aktiv)
+                .Select(p => new PersonDto { Id = p.Id, Name = p.Name, Vorname = p.Vorname, Art = p.Art })
+                .ToList();
+        }
+
+        if (Id is not null && (_einheit.Id == Guid.Empty || _einheit.Id != Id.Value))
+        {
+            var geladen = await Bestand.GetWirtschaftseinheitAsync(Id.Value);
+            if (geladen is null)
+                _ladefehler = "Die Wirtschaftseinheit wurde nicht gefunden.";
+            else
+                _einheit = geladen;
+        }
+    }
+
+    private void Zurueck() => Navigation.NavigateTo("/wirtschaftseinheiten");
+
+    private void Abbrechen() => Navigation.NavigateTo("/wirtschaftseinheiten");
+
+    private void FuegeFlurstueckHinzu() => _einheit.Flurstuecke.Add(new FlurstueckDto());
+
+    private void EntferneFlurstueck(FlurstueckDto f) => _einheit.Flurstuecke.Remove(f);
+
+    private void FuegeEigentuemerHinzu() => _einheit.Eigentuemer.Add(new EinheitEigentuemerDto());
+
+    private void EntferneEigentuemer(EinheitEigentuemerDto z) => _einheit.Eigentuemer.Remove(z);
+
+    private string PersonName(Guid id) => _personen.FirstOrDefault(p => p.Id == id)?.AnzeigeName ?? string.Empty;
+
+    private async Task SpeichernAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_einheit.Lage.Ort) && string.IsNullOrWhiteSpace(_einheit.Gemarkung))
+        {
+            Snackbar.Add("Bitte mindestens einen Ort oder eine Gemarkung angeben.", Severity.Warning);
+            return;
+        }
+
+        if (_einheit.Eigentuemer.Count > 0 && _einheit.Eigentuemer.Any(z => z.PersonId == Guid.Empty))
+        {
+            Snackbar.Add("Bitte für jede Eigentümer-Zuordnung eine Person auswählen.", Severity.Warning);
+            return;
+        }
+
+        var antwort = await Bestand.SpeichereWirtschaftseinheitAsync(_einheit);
+        if (antwort.Erfolg && antwort.Id.HasValue)
+        {
+            Snackbar.Add("Wirtschaftseinheit gespeichert.", Severity.Success);
+            if (_istNeu)
+                Navigation.NavigateTo($"/wirtschaftseinheiten/{antwort.Id.Value}", replace: true);
+        }
+        else
+        {
+            Snackbar.Add(antwort.Meldung ?? "Die Wirtschaftseinheit konnte nicht gespeichert werden.", Severity.Error);
+        }
+    }
+}

@@ -118,6 +118,7 @@ builder.Services.AddScoped<IGrundsteuerApiService>(sp =>
 // ---------------------------------------------------------------------------------------------
 builder.Services.AddScoped<GrundsteuerFormularSitzung>();
 builder.Services.AddScoped<MeldungsUebersichtState>();
+builder.Services.AddScoped<BestandsService>();
 
 var app = builder.Build();
 

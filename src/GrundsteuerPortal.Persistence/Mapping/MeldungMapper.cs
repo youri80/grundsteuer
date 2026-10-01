@@ -32,6 +32,9 @@ public static class MeldungMapper
             Aktenzeichen = e.Aktenzeichen,
             AktenzeichenElster = e.AktenzeichenElster,
             Steuernummer = e.Steuernummer,
+            WirtschaftseinheitId = e.WirtschaftseinheitId,
+            MeldendePersonId = e.MeldendePersonId,
+            MeldendePersonName = e.MeldendePersonName,
 
             Gemarkung = e.Gemarkung,
             Gemarkungsnummer = e.Gemarkungsnummer,
@@ -174,6 +177,9 @@ public static class MeldungMapper
         e.Aktenzeichen = dto.Aktenzeichen;
         e.AktenzeichenElster = dto.AktenzeichenElster;
         e.Steuernummer = dto.Steuernummer;
+        e.WirtschaftseinheitId = dto.WirtschaftseinheitId;
+        e.MeldendePersonId = dto.MeldendePersonId;
+        e.MeldendePersonName = dto.MeldendePersonName;
 
         e.Gemarkung = dto.Gemarkung;
         e.Gemarkungsnummer = dto.Gemarkungsnummer;

@@ -23,6 +23,10 @@ public class GrundsteuerDbContext : DbContext
     }
 
     public DbSet<GrundsteuerMeldungEntity> Meldungen => Set<GrundsteuerMeldungEntity>();
+    public DbSet<PersonEntity> Personen => Set<PersonEntity>();
+    public DbSet<WirtschaftseinheitEntity> Wirtschaftseinheiten => Set<WirtschaftseinheitEntity>();
+    public DbSet<EinheitFlurstueckEntity> EinheitFlurstuecke => Set<EinheitFlurstueckEntity>();
+    public DbSet<EinheitEigentuemerEntity> EinheitEigentuemer => Set<EinheitEigentuemerEntity>();
     public DbSet<FlurstueckEntity> Flurstuecke => Set<FlurstueckEntity>();
     public DbSet<EigentuemerEntity> Eigentuemer => Set<EigentuemerEntity>();
     public DbSet<ValidierungsHinweisEntity> Hinweise => Set<ValidierungsHinweisEntity>();
@@ -118,10 +122,128 @@ public class GrundsteuerDbContext : DbContext
                 .HasForeignKey(x => x.GrundsteuerMeldungId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Herkunfts-Einheit (Snapshot): Referenz ohne kaskadierendes Löschen. Eine Einheit darf
+            // nicht gelöscht werden, solange Meldungen auf sie zeigen.
+            e.HasOne(x => x.Wirtschaftseinheit)
+                .WithMany()
+                .HasForeignKey(x => x.WirtschaftseinheitId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Meldende Stelle: freier Verweis auf eine Person.
+            e.HasOne(x => x.MeldendePerson)
+                .WithMany()
+                .HasForeignKey(x => x.MeldendePersonId)
+                .OnDelete(DeleteBehavior.SetNull);
+
             // Das Dashboard filtert/sortiert nach diesen Feldern.
             e.HasIndex(x => x.Status);
             e.HasIndex(x => x.ZuletztGeaendertAm);
             e.HasIndex(x => x.Aktenzeichen);
+            e.HasIndex(x => x.WirtschaftseinheitId);
+        });
+
+        // =====================================================================================
+        //  Person - wiederverwendbarer Master
+        // =====================================================================================
+        b.Entity<PersonEntity>(e =>
+        {
+            e.ToTable("Personen");
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.RowVersion).IsConcurrencyToken().HasMaxLength(16);
+            e.Property(x => x.Status).HasConversion<int>();
+            e.Property(x => x.Art).HasConversion<int>();
+            e.Property(x => x.Anrede).HasConversion<int>();
+            e.Property(x => x.Name).HasMaxLength(160).HasDefaultValue(string.Empty);
+            e.Property(x => x.Vorname).HasMaxLength(80);
+            e.Property(x => x.IdNrHash).HasMaxLength(64);
+            e.Property(x => x.IdNrLetzteDrei).HasMaxLength(3);
+            e.Property(x => x.Steuernummer).HasMaxLength(20);
+            e.Property(x => x.Strasse).HasMaxLength(120).HasDefaultValue(string.Empty);
+            e.Property(x => x.Hausnummer).HasMaxLength(20).HasDefaultValue(string.Empty);
+            e.Property(x => x.Postleitzahl).HasMaxLength(10).HasDefaultValue(string.Empty);
+            e.Property(x => x.Ort).HasMaxLength(120).HasDefaultValue(string.Empty);
+            e.Property(x => x.Land).HasMaxLength(80);
+
+            e.HasIndex(x => x.IdNrHash);
+        });
+
+        // =====================================================================================
+        //  Wirtschaftseinheit - der stabile Bestand
+        // =====================================================================================
+        b.Entity<WirtschaftseinheitEntity>(e =>
+        {
+            e.ToTable("Wirtschaftseinheiten");
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.RowVersion).IsConcurrencyToken().HasMaxLength(16);
+            e.Property(x => x.Status).HasConversion<int>();
+            e.Property(x => x.Bundesland).HasConversion<int>();
+            e.Property(x => x.Modell).HasConversion<int>();
+            e.Property(x => x.Grundstuecksart).HasConversion<int>();
+            e.Property(x => x.Wohnlage).HasConversion<int>();
+
+            e.Property(x => x.Gemarkung).HasMaxLength(120);
+            e.Property(x => x.Bundesfinanzamtsnummer).HasMaxLength(4);
+
+            e.Property(x => x.Grundstuecksflaeche).HasColumnType("TEXT");
+            e.Property(x => x.Wohnflaeche).HasColumnType("TEXT");
+            e.Property(x => x.Nutzflaeche).HasColumnType("TEXT");
+            e.Property(x => x.Bodenrichtwert).HasColumnType("TEXT");
+            e.Property(x => x.DurchschnittlicherBodenrichtwert).HasColumnType("TEXT");
+
+            e.OwnsOne(x => x.Lage, lage =>
+            {
+                lage.Property(p => p.Strasse).HasColumnName("Lage_Strasse").HasMaxLength(120).HasDefaultValue(string.Empty);
+                lage.Property(p => p.Hausnummer).HasColumnName("Lage_Hausnummer").HasMaxLength(20).HasDefaultValue(string.Empty);
+                lage.Property(p => p.HausnummerZusatz).HasColumnName("Lage_HausnummerZusatz").HasMaxLength(20);
+                lage.Property(p => p.Postleitzahl).HasColumnName("Lage_Postleitzahl").HasMaxLength(10).HasDefaultValue(string.Empty);
+                lage.Property(p => p.Ort).HasColumnName("Lage_Ort").HasMaxLength(120).HasDefaultValue(string.Empty);
+                lage.Property(p => p.Ortsteil).HasColumnName("Lage_Ortsteil").HasMaxLength(120);
+                lage.Property(p => p.Land).HasColumnName("Lage_Land").HasMaxLength(80);
+            });
+
+            e.HasMany(x => x.Flurstuecke)
+                .WithOne(x => x.Wirtschaftseinheit!)
+                .HasForeignKey(x => x.WirtschaftseinheitId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasMany(x => x.Eigentuemer)
+                .WithOne(x => x.Wirtschaftseinheit!)
+                .HasForeignKey(x => x.WirtschaftseinheitId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.ZuletztGeaendertAm);
+        });
+
+        b.Entity<EinheitFlurstueckEntity>(e =>
+        {
+            e.ToTable("EinheitFlurstuecke");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Gemarkung).HasMaxLength(120).HasDefaultValue(string.Empty);
+            e.Property(x => x.Gemarkungsnummer).HasMaxLength(20);
+            e.Property(x => x.Flur).HasMaxLength(20);
+            e.Property(x => x.Zaehler).HasMaxLength(20);
+            e.Property(x => x.Nenner).HasMaxLength(20);
+            e.Property(x => x.Flaeche).HasColumnType("TEXT");
+            e.Property(x => x.Anteil).HasColumnType("TEXT");
+            e.HasIndex(x => new { x.WirtschaftseinheitId, x.Reihenfolge });
+        });
+
+        b.Entity<EinheitEigentuemerEntity>(e =>
+        {
+            e.ToTable("EinheitEigentuemer");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Anteil).HasColumnType("TEXT");
+
+            e.HasOne(x => x.Person)
+                .WithMany()
+                .HasForeignKey(x => x.PersonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.WirtschaftseinheitId, x.Reihenfolge });
+            e.HasIndex(x => x.PersonId);
         });
 
         // =====================================================================================
