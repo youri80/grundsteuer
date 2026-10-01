@@ -28,7 +28,14 @@ public static class TestdatenFactory
     //  Öffentliche Erzeugung
     // -----------------------------------------------------------------------------------------
 
-    /// <summary>Alle Beispielmeldungen, jeweils im Status Entwurf und noch nicht gespeichert.</summary>
+    /// <summary>
+    /// Die acht Beispielmeldungen, mit denen sich der Wizard vollständig durchspielen lässt.
+    ///
+    /// Sie stehen im Status <b>Entwurf</b>, damit jeder Schritt bearbeitbar ist. Datensätze mit
+    /// Endzustand (übermittelt, festgestellt, in Prüfung, Validierungsfehler) liefert
+    /// <see cref="MitEndzustaenden"/> - ohne sie hätten die Statusfilter im Navigationsbereich
+    /// nie einen Treffer.
+    /// </summary>
     public static IReadOnlyList<Testdatensatz> Alle() => new List<Testdatensatz>
     {
         HessenEinfamilienhaus(),
@@ -40,6 +47,105 @@ public static class TestdatenFactory
         BerlinEigentumswohnung(),
         SachsenMiteigentum()
     };
+
+    /// <summary>
+    /// Zusätzliche Beispieldatensätze für die Statusfilter des Navigationsbereichs: je einer
+    /// übermittelt, festgestellt, in Prüfung und mit Validierungsfehler.
+    ///
+    /// Getrennt von <see cref="Alle"/>, weil diese vier nur für die Filteransicht gedacht sind -
+    /// wer den Wizard durchspielen will, braucht die Entwürfe, nicht die Endzustände.
+    /// </summary>
+    public static IReadOnlyList<Testdatensatz> MitEndzustaenden() => new List<Testdatensatz>
+    {
+        Uebermittelt(),
+        Festgestellt(),
+        InPruefung(),
+        MitValidierungsfehler()
+    };
+
+    private static Testdatensatz Uebermittelt()
+    {
+        var satz = BayernZweifamilienhaus();
+        var m = satz.Meldung;
+
+        m.Status = MeldungStatus.Uebermittelt;
+        // Eigene Nummer: sonst waere der Datensatz mit dem Entwurf identisch und die
+        // Dublettenerkennung beim Einspielen liesse ihn weg.
+        m.Aktenzeichen = Aktenzeichen(Bundesland.Bayern, "102", "uebermittelt");
+        m.AktenzeichenElster = m.Aktenzeichen;
+        // Ein übermittelter Datensatz hat eine Referenz der Finanzverwaltung und ein Datum.
+        m.UebermittlungsReferenz = "ELSTER-2026-0000-0000-4711";
+        m.UebermitteltAm = new DateTime(2026, 9, 15, 10, 30, 0, DateTimeKind.Utc);
+        m.Berechnung = MessbetragRechner.Berechne(m);
+
+        return satz with
+        {
+            Bezeichnung = "Bayern – übermittelt",
+            Zweck = "Endzustand nach der Übermittlung: Referenz und Datum sind gesetzt, die Meldung "
+                    + "ist schreibgeschützt. Prüft den Filter 'Übermittelt'."
+        };
+    }
+
+    private static Testdatensatz Festgestellt()
+    {
+        var satz = NordrheinWestfalenMehrfamilienhaus();
+        var m = satz.Meldung;
+
+        m.Status = MeldungStatus.Festgestellt;
+        m.Aktenzeichen = Aktenzeichen(Bundesland.NordrheinWestfalen, "101", "festgestellt");
+        m.AktenzeichenElster = m.Aktenzeichen;
+        m.UebermittlungsReferenz = "ELSTER-2026-0000-0000-0815";
+        m.UebermitteltAm = new DateTime(2026, 6, 2, 9, 0, 0, DateTimeKind.Utc);
+        m.Berechnung = MessbetragRechner.Berechne(m);
+
+        return satz with
+        {
+            Bezeichnung = "Nordrhein-Westfalen – festgestellt",
+            Zweck = "Endzustand mit vorliegendem Messbescheid: der Messbetrag ist festgestellt, "
+                    + "die Meldung kann nur noch storniert oder berichtigt werden. Prüft den "
+                    + "Filter 'Festgestellt'."
+        };
+    }
+
+    private static Testdatensatz InPruefung()
+    {
+        var satz = SachsenMiteigentum();
+        var m = satz.Meldung;
+
+        m.Status = MeldungStatus.InPruefung;
+        m.Aktenzeichen = Aktenzeichen(Bundesland.Sachsen, "202", "inpruefung");
+        m.AktenzeichenElster = m.Aktenzeichen;
+        m.UebermittlungsReferenz = "ELSTER-2026-0000-0000-1234";
+        m.UebermitteltAm = new DateTime(2026, 8, 20, 14, 45, 0, DateTimeKind.Utc);
+        m.Berechnung = MessbetragRechner.Berechne(m);
+
+        return satz with
+        {
+            Bezeichnung = "Sachsen – in Prüfung",
+            Zweck = "Die Erklärung liegt beim Finanzamt: bearbeitbar ist sie nicht mehr, der "
+                    + "Messbetrag steht noch aus. Prüft den Zwischenzustand."
+        };
+    }
+
+    private static Testdatensatz MitValidierungsfehler()
+    {
+        var satz = BadenWuerttembergUnbebaut();
+        var m = satz.Meldung;
+
+        // Bewusst ein fehlendes Pflichtfeld (Bodenrichtwert ist in BW Pflicht): die
+        // Prüfung liefert dazu einen Fehler, und die Übersicht zeigt die Zeile hervorgehoben.
+        m.Bodenrichtwert = null;
+        m.Status = MeldungStatus.Validierungsfehler;
+        m.Aktenzeichen = Aktenzeichen(Bundesland.BadenWuerttemberg, "01", "fehler");
+        m.AktenzeichenElster = m.Aktenzeichen;
+
+        return satz with
+        {
+            Bezeichnung = "Baden-Württemberg – mit Validierungsfehler",
+            Zweck = "Fehlende Pflichtangabe (Bodenrichtwert). Die Zeile erscheint in der Übersicht "
+                    + "hervorgehoben; der Status lautet 'Validierungsfehler'."
+        };
+    }
 
     // -----------------------------------------------------------------------------------------
     //  Hessen - Flächen-Faktor-Verfahren, Ordnungskriterium Aktenzeichen
@@ -551,9 +657,10 @@ public static class TestdatenFactory
     /// 13-stellige Steuernummer im ELSTER-Format: FFFF0BBBUUUU P (bzw. NRW FFFF0BBBBUUUP).
     /// Nur für die Länder, deren Ordnungskriterium die Steuernummer ist.
     /// </summary>
-    public static string Steuernummer(Bundesland land, string bufa, string bezirk, string laufend)
+    public static string Steuernummer(Bundesland land, string bufa, string bezirk, string laufend,
+        string variante = "")
     {
-        var zufall = new Random(StabilerStartwert($"stnr-{land}-{bufa}"));
+        var zufall = new Random(StabilerStartwert($"stnr-{land}-{bufa}-{variante}"));
         var istNrw = land == Bundesland.NordrheinWestfalen;
         var bezirkLaenge = istNrw ? 4 : 3;
         var laufendLaenge = istNrw ? 3 : 4;
@@ -595,14 +702,17 @@ public static class TestdatenFactory
     /// Grundsteuer-Aktenzeichen im Format des jeweiligen Landes. <paramref name="faAnteil"/> ist
     /// der vorangestellte Finanzamtsanteil, damit das Aktenzeichen zum Finanzamt passt.
     /// </summary>
-    public static string Aktenzeichen(Bundesland land, string faAnteil)
+    public static string Aktenzeichen(Bundesland land, string faAnteil, string variante = "")
     {
         var info = BundeslandKatalog.Fuer(land);
         var laenge = info.AktenzeichenFormat == AktenzeichenFormat.BayernVerbund ? 17
                    : info.AktenzeichenFormat == AktenzeichenFormat.NordrheinWestfalen ? 13
                    : 16;
 
-        var zufall = new Random(StabilerStartwert($"az-{land}-{faAnteil}"));
+        // `variante` geht in den Startwert ein: ein abgeleiteter Datensatz (z. B. derselbe Fall im
+        // Status "uebermittelt") braucht eine EIGENE Nummer, sonst erkennt die Dublettenerkennung
+        // beim Einspielen nur den ersten und laesst den zweiten weg.
+        var zufall = new Random(StabilerStartwert($"az-{land}-{faAnteil}-{variante}"));
 
         for (var versuch = 0; versuch < 20_000; versuch++)
         {

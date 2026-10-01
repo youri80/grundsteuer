@@ -40,7 +40,9 @@ public static class TestdatensatzDienst
         var angelegt = 0;
         var uebersprungen = 0;
 
-        foreach (var satz in TestdatenFactory.Alle())
+        // Die Entwürfe zum Durchspielen UND die Datensätze mit Endzustand: ohne die letzteren
+        // blieben die Statusfilter „Übermittelt" und „Festgestellt" im Navigationsbereich leer.
+        foreach (var satz in TestdatenFactory.Alle().Concat(TestdatenFactory.MitEndzustaenden()))
         {
             var nummer = satz.Meldung.Aktenzeichen ?? satz.Meldung.Steuernummer;
             if (!string.IsNullOrWhiteSpace(nummer) && bekannteNummern.Contains(nummer!))

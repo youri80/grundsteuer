@@ -23,23 +23,39 @@ public partial class Dashboard : ComponentBase, IDisposable
     [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
     [Inject] private ILogger<Dashboard> _logger { get; set; } = default!;
 
+    /// <summary>
+    /// Der Statusfilter aus der Adresse (<c>/?status=4</c>). Die Navigationsleiste verlinkt die
+    /// Status direkt; damit ist die Adresse die eine Quelle für diesen Filter.
+    /// </summary>
+    /// <remarks>
+    /// Der Wert muss als Parameter gelesen werden, nicht einmalig aus <c>Navigation.Uri</c>:
+    /// ein Klick im Navigationsbereich ist eine Navigation auf dieselbe Route. Die Komponente
+    /// bleibt dabei bestehen, <c>OnInitializedAsync</c> läuft kein zweites Mal — ein dort
+    /// gelesener Wert würde nur beim ersten Aufruf greifen und der Filter bliebe wirkungslos.
+    /// Als Parameter gebunden wird die Komponente bei jeder Adressänderung neu versorgt.
+    /// </remarks>
+    [Parameter, SupplyParameterFromQuery(Name = "status")]
+    public int? StatusAusAdresse { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         State.Geaendert += StateHatSichGeaendert;
-
-        // Der Statusfilter kann per Deep-Link aus dem Drawer gesetzt werden: /?status=2
-        var query = Navigation.ToAbsoluteUri(Navigation.Uri).Query;
-        foreach (var paar in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
-        {
-            var teile = paar.Split('=', 2);
-            if (teile.Length == 2 && teile[0] == "status" && int.TryParse(teile[1], out var statusWert)
-                && Enum.IsDefined(typeof(MeldungStatus), statusWert))
-            {
-                State.FilterStatus = (MeldungStatus)statusWert;
-            }
-        }
-
         await State.LadenAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Der Adresswert wird bei jedem Rendern abgeglichen, nicht nur beim ersten. Dadurch wirken
+        // auch die Statuslinks im Navigationsbereich, die Zurück-Schaltfläche und ein Lesezeichen.
+        var gewuenscht = StatusAusAdresse is int wert && Enum.IsDefined(typeof(MeldungStatus), wert)
+            ? (MeldungStatus)wert
+            : (MeldungStatus?)null;
+
+        if (gewuenscht != State.FilterStatus)
+        {
+            State.FilterStatus = gewuenscht;
+            State.GeaendertMelden();
+        }
     }
 
     public void Dispose() => State.Geaendert -= StateHatSichGeaendert;
@@ -62,11 +78,20 @@ public partial class Dashboard : ComponentBase, IDisposable
 
     private void StatusGeaendert(MeldungStatus? status)
     {
-        State.FilterStatus = status;
-        State.GeaendertMelden();
+        // Die Adresse ist die eine Quelle für diesen Filter - also wird sie hier mitgeführt.
+        // Ohne das würde OnParametersSet die Auswahl beim nächsten Rendern auf den alten
+        // Adresswert zurückstellen.
+        Navigation.NavigateTo(status is null ? "/" : $"/?status={(int)status.Value}");
     }
 
-    private void FilterZuruecksetzen() => State.FilterZuruecksetzen();
+    private void FilterZuruecksetzen()
+    {
+        State.FilterZuruecksetzen();
+
+        // Steht der Status in der Adresse, muss sie mitgeführt werden - sonst setzt
+        // OnParametersSet ihn beim nächsten Rendern wieder.
+        if (StatusAusAdresse is not null) Navigation.NavigateTo("/");
+    }
 
     /// <summary>
     /// Legt die Beispielmeldungen an, damit der Meldungsprozess in der Oberfläche vollständig
@@ -85,9 +110,11 @@ public partial class Dashboard : ComponentBase, IDisposable
             bereitsVorhanden
                 ? "Es sind bereits Testdaten vorhanden. Fehlende Datensätze werden ergänzt, "
                   + "bestehende bleiben unverändert."
-                : "Es werden acht vollständige Beispielmeldungen angelegt (alle Berechnungsmodelle, "
-                  + "beide Ordnungskriterien). Die Nummern sind rechnerisch gültig, aber fiktiv – "
-                  + "für die Übermittlung an ein echtes Finanzamt sind sie nicht bestimmt.",
+                : "Es werden zwölf vollständige Beispielmeldungen angelegt: acht Entwürfe zum "
+                  + "Durchspielen des Assistenten und vier mit Endzustand (übermittelt, "
+                  + "festgestellt, in Prüfung, Validierungsfehler), damit auch die Statusfilter "
+                  + "etwas anzeigen. Die Nummern sind rechnerisch gültig, aber fiktiv – für die "
+                  + "Übermittlung an ein echtes Finanzamt sind sie nicht bestimmt.",
             yesText: "Einspielen", cancelText: "Abbrechen");
 
         if (bestaetigt != true) return;

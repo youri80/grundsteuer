@@ -120,9 +120,11 @@ docker compose up -d
 
 ## Testdaten
 
-Auf dem Dashboard legt ein Klick auf **Testdaten** acht vollständige Beispielmeldungen an — alle
-fünf Berechnungsmodelle, beide Ordnungskriterien, Einzel- und Miteigentum. Damit lässt sich der
-Meldungsprozess in der Oberfläche durchspielen, ohne Daten von Hand einzutippen.
+Auf dem Dashboard legt ein Klick auf **Testdaten** zwölf vollständige Beispielmeldungen an: acht
+Entwürfe (alle fünf Berechnungsmodelle, beide Ordnungskriterien, Einzel- und Miteigentum) und vier
+mit Endzustand (übermittelt, festgestellt, in Prüfung, Validierungsfehler). Damit lassen sich der
+Meldungsprozess **und** die Statusfilter im Navigationsbereich durchspielen, ohne Daten von Hand
+einzutippen.
 
 Die Formate und Prüfziffern entsprechen den ELSTER-Vorgaben, die Finanzamtsnummern stammen aus den
 zugelassenen Bereichen; die Fälle selbst sind erfunden. Die Übermittlung an die ELSTER-WebAPI ist

@@ -84,6 +84,58 @@ public class TestdatenTests
     // -----------------------------------------------------------------------------------------
 
     [Fact]
+    public void Endzustaende_DeckenDieStatusfilterAb()
+    {
+        // Ohne Datensaetze in anderen Zustaenden waeren die Statusfilter im Navigationsbereich
+        // ("Uebermittelt", "Festgestellt") immer leer - und damit nicht pruefbar.
+        var zustaende = TestdatenFactory.MitEndzustaenden().Select(s => s.Meldung.Status).ToList();
+
+        Assert.Contains(MeldungStatus.Uebermittelt, zustaende);
+        Assert.Contains(MeldungStatus.Festgestellt, zustaende);
+        Assert.Contains(MeldungStatus.InPruefung, zustaende);
+        Assert.Contains(MeldungStatus.Validierungsfehler, zustaende);
+
+        // Zusammen mit den Entwuerfen ist jeder Status mindestens einmal belegt, den die
+        // Navigationsleiste verlinkt.
+        var alleStatus = TestdatenFactory.Alle().Concat(TestdatenFactory.MitEndzustaenden())
+            .Select(s => s.Meldung.Status).ToHashSet();
+        Assert.Contains(MeldungStatus.Entwurf, alleStatus);
+        Assert.Contains(MeldungStatus.Uebermittelt, alleStatus);
+        Assert.Contains(MeldungStatus.Festgestellt, alleStatus);
+    }
+
+    [Fact]
+    public void AlleDatensaetze_HabenEindeutigeNummern()
+    {
+        // Zwei Datensaetze mit derselben Nummer waeren fuer die Dublettenerkennung des
+        // Einspielens EIN Datensatz - der zweite wuerde stillschweigend fehlen. Genau das ist
+        // passiert, als die Endzustaende von den Entwuerfen abgeleitet wurden.
+        var alle = TestdatenFactory.Alle().Concat(TestdatenFactory.MitEndzustaenden()).ToList();
+        var nummern = alle.Select(s => s.Meldung.Aktenzeichen ?? s.Meldung.Steuernummer).ToList();
+
+        Assert.All(nummern, n => Assert.False(string.IsNullOrWhiteSpace(n)));
+        Assert.Equal(nummern.Count, nummern.Distinct(StringComparer.Ordinal).Count());
+
+        // Auch die Gesamtzahl muss stimmen: alle Datensaetze kommen durch das Einspielen.
+        Assert.Equal(12, alle.Count);
+    }
+
+    [Fact]
+    public void UebermittelteUndFestgestellte_SindNichtMehrBearbeitbar()
+    {
+        // Ein Endzustand muss die Felder tragen, die die Uebersicht zeigt: ohne Datum und
+        // Referenz saehe "Uebermittelt" in der Tabelle wie ein Fehler aus.
+        foreach (var satz in TestdatenFactory.MitEndzustaenden()
+                     .Where(s => s.Meldung.Status is MeldungStatus.Uebermittelt
+                                                    or MeldungStatus.Festgestellt))
+        {
+            Assert.False(string.IsNullOrWhiteSpace(satz.Meldung.UebermittlungsReferenz));
+            Assert.NotNull(satz.Meldung.UebermitteltAm);
+            Assert.NotNull(satz.Meldung.Berechnung);
+        }
+    }
+
+    [Fact]
     public void Datensaetze_DeckenBeideOrdnungskriterienAb()
     {
         var laender = TestdatenFactory.Alle().Select(s => s.Meldung.Bundesland).ToList();

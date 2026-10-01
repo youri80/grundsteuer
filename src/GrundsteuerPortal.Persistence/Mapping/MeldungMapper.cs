@@ -203,6 +203,13 @@ public static class MeldungMapper
         e.BevollmaechtigterName = dto.BevollmaechtigterName;
         e.BevollmaechtigterIdNr = dto.BevollmaechtigterIdNr;
 
+        // Uebermittlungs- und Bescheidangaben: sie kommen nicht aus dem Formular, sondern aus der
+        // API. Ein Datensatz kann sie aber bereits tragen (z.B. ein eingespielter Beispieldatensatz
+        // mit Status "Uebermittelt" oder "Festgestellt"). Ohne diese Uebernahme zeigte die
+        // Übersicht den Status ohne Uebermittlungsdatum bzw. ohne Messbescheid.
+        e.UebermitteltAm = dto.UebermitteltAm;
+        e.UebermittlungsReferenz = dto.UebermittlungsReferenz;
+
         e.Berechnung = ZuEntity(dto.Berechnung);
 
         // Kindlisten werden vollständig neu aufgebaut: der Wizard liefert immer den kompletten

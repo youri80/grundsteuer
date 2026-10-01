@@ -1,7 +1,12 @@
 # Testdaten
 
-Acht vollständige Beispielmeldungen, damit der Meldungsprozess in der Oberfläche von Anfang bis
-Ende durchgespielt werden kann — **ohne** dass Daten von Hand eingetippt werden müssen.
+Zwölf vollständige Beispielmeldungen, damit der Meldungsprozess **und** die Statusfilter im
+Navigationsbereich in der Oberfläche durchgespielt werden können — **ohne** dass Daten von Hand
+eingetippt werden müssen.
+
+Acht davon sind **Entwürfe**: sie durchlaufen den Assistenten von Schritt 1 bis 4. Vier tragen einen
+**Endzustand** (übermittelt, festgestellt, in Prüfung, Validierungsfehler) — ohne sie hätten die
+Filter „Übermittelt" und „Festgestellt" nie einen Treffer und ließen sich nicht prüfen.
 
 ## Einspielen
 
@@ -26,6 +31,19 @@ bearbeiten, validieren und speichern.
 
 Damit sind beide Ordnungskriterien, alle fünf Berechnungsmodelle, bebaut und unbebaut, natürliche
 und juristische Personen sowie Einzel- und Miteigentum abgedeckt.
+
+### Zusätzlich: Datensätze mit Endzustand
+
+| Status | Ableitung | Zeigt in der Oberfläche |
+|---|---|---|
+| Übermittelt | Bayern, eigene Nummer | Referenz und Übermittlungsdatum, schreibgeschützt |
+| Festgestellt | NRW, eigene Nummer | Messbescheid liegt vor, nur noch stornierbar |
+| In Prüfung | Sachsen, eigene Nummer | beim Finanzamt, Messbetrag steht aus |
+| Validierungsfehler | BW, eigene Nummer | Zeile hervorgehoben, Pflichtangabe fehlt |
+
+Diese vier leiten sich von den Entwürfen ab, tragen aber eine **eigene Nummer**. Ohne das wären sie
+für die Dublettenerkennung beim Einspielen derselbe Datensatz — der zweite würde stillschweigend
+fehlen. Abgesichert durch `AlleDatensaetze_HabenEindeutigeNummern`.
 
 ## Wie die Nummern entstehen
 
