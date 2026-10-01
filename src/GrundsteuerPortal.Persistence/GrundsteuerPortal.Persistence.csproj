@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GrundsteuerPortal.Persistence</RootNamespace>
+    <!-- EF Core 10 gibt fuer decimal-Spalten in SQLite eine Warnung aus; wir setzen die
+         Spaltentypen explizit (TEXT) und dokumentieren die Konsequenz in SqliteHinweise.md.
+         Ebenso unterdrueckt: die nicht-deterministischen Razor-Phantome (siehe Skill). -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <!-- Pin auf die gepatchte SQLitePCLRaw-Kette: EF Core zieht 2.1.11 ein, das eine bekannte
+         Schwachstelle hat (GHSA-2m69-gcr7-jv3q). Ohne Pin bleibt NU1903 als Build-Warnung. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.0" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GrundsteuerPortal.Core\GrundsteuerPortal.Core.csproj" />
+  </ItemGroup>
+
+</Project>

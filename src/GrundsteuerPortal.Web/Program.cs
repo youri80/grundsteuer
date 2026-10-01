@@ -1,4 +1,6 @@
 using GrundsteuerPortal.Core.Api;
+using GrundsteuerPortal.Persistence;
+using GrundsteuerPortal.Persistence.Abstractions;
 using GrundsteuerPortal.Web.Components;
 using GrundsteuerPortal.Web.Services;
 using MudBlazor;
@@ -31,25 +33,54 @@ builder.Services.AddMudServices(config =>
 builder.Services.AddSingleton<GrundsteuerTheme>();
 
 // ---------------------------------------------------------------------------------------------
-// API-Zugriff: Typed HttpClient auf die vorhandene ELSTER-WebAPI.
-// Ohne erreichbare API (oder mit Api:UseMock=true) übernimmt die Mock-Implementierung,
-// damit die Oberfläche sofort lokal bedienbar ist.
+// Persistenz: EF Core + SQLite (lokale Ablage für Entwürfe, Stammdaten und Verlauf).
+// Der Pfad kommt aus der Konfiguration; im Container/auf dem Server wird ein beschreibbares
+// Verzeichnis verwendet, nicht das Installationsverzeichnis.
 // ---------------------------------------------------------------------------------------------
-builder.Services.AddHttpClient<GrundsteuerApiService>(client =>
-{
-    var basis = builder.Configuration["Api:BasisAdresse"] ?? "https://localhost:7443/";
-    client.BaseAddress = new Uri(basis);
-    client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Api:TimeoutSekunden", 60));
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-});
+var datenbankPfad = builder.Configuration["Datenbank:Pfad"] ?? "data/grundsteuer.db";
+builder.Services.AddGrundsteuerPersistenz(datenbankPfad);
 
+// Salt für die Pseudonymisierung der Steueridentifikationsnummer. Gehört in die Konfiguration,
+// nicht in den Code: ein Saltwechsel in einer bestehenden Datenbank macht gespeicherte Hashes
+// unvergleichbar (die letzten drei Stellen bleiben zur Wiedererkennung erhalten).
+GrundsteuerService.SetzeIdNrSalt(builder.Configuration["Datenbank:IdNrSalt"]);
+
+// ---------------------------------------------------------------------------------------------
+// Zugriff auf die vorhandene ELSTER-WebAPI: Typed HttpClient.
+// Dieses Projekt selbst enthält KEINE Finanzverwaltungs-Schnittstelle - es ruft nur die
+// bestehende REST-WebAPI auf. Ist sie nicht erreichbar oder nicht konfiguriert
+// (Api:UseMock=true bzw. Api:IstKonfiguriert=false), bleibt die Oberfläche voll bedienbar:
+// Entwürfe gehen in die lokale SQLite-Ablage, nur die ELSTER-Aktionen melden sich klar.
+// ---------------------------------------------------------------------------------------------
+var apiBasis = builder.Configuration["Api:BasisAdresse"];
+var apiKonfiguriert = builder.Configuration.GetValue("Api:IstKonfiguriert", false)
+                      && Uri.TryCreate(apiBasis, UriKind.Absolute, out _);
+
+if (apiKonfiguriert)
+{
+    builder.Services.AddHttpClient<GrundsteuerApiService>(client =>
+    {
+        client.BaseAddress = new Uri(apiBasis!);
+        client.Timeout = TimeSpan.FromSeconds(builder.Configuration.GetValue("Api:TimeoutSekunden", 60));
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
+    });
+
+    builder.Services.AddScoped<IGrundsteuerApiService>(sp => sp.GetRequiredService<GrundsteuerApiService>());
+}
+else
+{
+    // Kein HTTP-Client registriert: IGrundsteuerApiService bleibt als optionaler Parameter null.
+    builder.Logging.AddFilter("GrundsteuerPortal.Web.Services.GrundsteuerService", LogLevel.Information);
+}
+
+// Die Fassade, die die UI verwendet: lokale Ablage + optionale ELSTER-WebAPI.
 builder.Services.AddScoped<IGrundsteuerApiService>(sp =>
 {
-    var konfiguration = sp.GetRequiredService<IConfiguration>();
-    if (konfiguration.GetValue("Api:UseMock", true))
-        return new MockGrundsteuerApiService();
+    var repo = sp.GetRequiredService<IGrundsteuerRepository>();
+    var logger = sp.GetRequiredService<ILogger<GrundsteuerService>>();
+    var elster = apiKonfiguriert ? sp.GetRequiredService<GrundsteuerApiService>() : null;
 
-    return sp.GetRequiredService<GrundsteuerApiService>();
+    return new GrundsteuerService(repo, logger, elster);
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -60,6 +91,17 @@ builder.Services.AddScoped<GrundsteuerFormularSitzung>();
 builder.Services.AddScoped<MeldungsUebersichtState>();
 
 var app = builder.Build();
+
+// ---------------------------------------------------------------------------------------------
+// Datenbank anlegen und Grunddaten einspielen (idempotent).
+// Bewusst beim Start: SQLite braucht kein separates Deployment, und der erste Zugriff auf eine
+// leere Datei würde sonst mitten im Wizard eine Ausnahme werfen.
+// ---------------------------------------------------------------------------------------------
+await using (var scope = app.Services.CreateAsyncScope())
+{
+    var repo = scope.ServiceProvider.GetRequiredService<IGrundsteuerRepository>();
+    await repo.InitialisierenAsync();
+}
 
 if (!app.Environment.IsDevelopment())
 {

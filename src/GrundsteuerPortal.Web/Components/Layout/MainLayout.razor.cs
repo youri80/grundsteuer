@@ -8,8 +8,11 @@ public partial class MainLayout : LayoutComponentBase
     private bool _drawerOffen = true;
     private bool _istDunkel;
 
-    /// <summary>Läuft das Portal gegen den Mock (kein erreichbares Backend)? Dann zeigt die AppBar das an.</summary>
-    private bool MockAktiv => Konfiguration.GetValue("Api:UseMock", true);
+    /// <summary>
+    /// Ist die ELSTER-WebAPI nicht verbunden? Dann zeigt die AppBar das offen an - der Nutzer soll
+    /// wissen, dass Entwürfe lokal gespeichert werden und nur die Übermittlung nicht möglich ist.
+    /// </summary>
+    private bool MockAktiv => !Konfiguration.GetValue("Api:IstKonfiguriert", false);
 
     private string _version => typeof(MainLayout).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
 

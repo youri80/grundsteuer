@@ -11,10 +11,15 @@
 
   <ItemGroup>
     <PackageReference Include="MudBlazor" Version="9.7.0" />
+    <!-- Pin auf die gepatchte SQLitePCLRaw-Kette: die von EF Core mitgebrachte Version 2.1.11
+         hat eine bekannte Schwachstelle (GHSA-2m69-gcr7-jv3q). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.0" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.50.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\GrundsteuerPortal.Core\GrundsteuerPortal.Core.csproj" />
+    <ProjectReference Include="..\GrundsteuerPortal.Persistence\GrundsteuerPortal.Persistence.csproj" />
   </ItemGroup>
 
 </Project>

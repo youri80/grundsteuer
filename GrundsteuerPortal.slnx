@@ -1,6 +1,10 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/GrundsteuerPortal.Core/GrundsteuerPortal.Core.csproj" />
+    <Project Path="src/GrundsteuerPortal.Persistence/GrundsteuerPortal.Persistence.csproj" />
     <Project Path="src/GrundsteuerPortal.Web/GrundsteuerPortal.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GrundsteuerPortal.Tests/GrundsteuerPortal.Tests.csproj" />
   </Folder>
 </Solution>
