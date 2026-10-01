@@ -138,7 +138,7 @@ public sealed class GrundsteuerApiService : IGrundsteuerApiService
             _logger.LogWarning(ex, "{Aktion} fehlgeschlagen", aktion);
             return ApiResponse.Fehler(
                 $"{aktion} fehlgeschlagen: Die ELSTER-WebAPI ist nicht erreichbar. "
-                + "Bitte Verbindung prüfen oder den Mock-Betrieb aktivieren (Api:UseMock).",
+                + "Bitte Verbindung prüfen oder den lokalen Betrieb aktivieren (Api:IstKonfiguriert=false).",
                 "NETZWERK");
         }
     }

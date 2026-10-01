@@ -1,0 +1,43 @@
+{{/*
+  OpenShift Route.
+
+  Die App hoert im Container nur HTTP; TLS endet am Router (edge). Der Hostname wird bewusst
+  automatisch vergeben, wenn keiner gesetzt ist - dann braucht die Installation keinen eigenen
+  DNS-Eintrag.
+
+  Warum das timeout so hoch ist: Der Blazor-Circuit laeuft ueber eine dauerhafte
+  SignalR-Verbindung. Der HAProxy-Voreinstellungswert liegt bei 30s und trennt sie, sobald ein
+  Nutzer laenger nichts anklickt. Die Oberflaeche wirkt danach tot und baut die Verbindung neu
+  auf. Das faellt nur in Phasen ohne Interaktion auf - typischerweise beim Ausfuellen eines
+  langen Formulars.
+
+  Die Voreinstellung des Routers ist Cookie-Affinitaet; disable_cookies wird deshalb NICHT
+  gesetzt, sonst landen die SignalR-Verbindungen kreuz und quer auf verschiedenen Instanzen.
+*/}}
+{{- if .Values.route.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ include "grundsteuer.fullname" . }}
+  labels:
+    {{- include "grundsteuer.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.route.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.route.host }}
+  host: {{ .Values.route.host | quote }}
+  {{- end }}
+  path: {{ .Values.route.path | quote }}
+  to:
+    kind: Service
+    name: {{ include "grundsteuer.fullname" . }}
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
+  tls:
+    termination: {{ .Values.route.tls.termination }}
+    insecureEdgeTerminationPolicy: {{ .Values.route.tls.insecureEdgeTerminationPolicy }}
+{{- end }}

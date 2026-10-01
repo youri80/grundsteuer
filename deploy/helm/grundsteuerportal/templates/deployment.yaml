@@ -1,0 +1,156 @@
+{{/*
+  Deployment.
+  Bewusst apps/v1 statt DeploymentConfig: DeploymentConfig ist in OpenShift 4.16 und 4.17
+  deprecated und wird in einer kuenftigen Version entfernt. Deployment ist die aktuelle API.
+
+  runAsUser wird NICHT gesetzt - der restricted-v2 SCC vergibt eine beliebige UID aus dem
+  Projektbereich (MustRunAsRange). Ein fest eingetragener Wert fuehrt zur Ablehnung des Pods.
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "grundsteuer.fullname" . }}
+  labels:
+    {{- include "grundsteuer.labels" . | nindent 4 }}
+  annotations:
+    # Prueft die Konfiguration und bricht bei Widerspruechen den Build ab (Helm 'fail'):
+    # Datenpfad ausserhalb des Volumes bzw. mehrere Instanzen ohne Sitzungsaffinitaet.
+    # Beides sind stille Fehler zur Laufzeit - die App startet, nur die Daten sind spaeter weg.
+    {{- include "grundsteuer.pruefeDatenpfad" . | nindent 4 }}
+    {{- include "grundsteuer.pruefeReplicas" . | nindent 4 }}
+    {{- with .Values.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "grundsteuer.selectorLabels" . | nindent 6 }}
+  strategy:
+    {{- toYaml .Values.strategy | nindent 4 }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.reloader.enabled }}
+        # Erzwingt einen Rollout bei geaenderter Konfiguration: die Pod-Vorlage waere sonst
+        # identisch und Kubernetes wuerde die laufenden Pods nicht ersetzen.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "grundsteuer.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "grundsteuer.serviceAccountName" . }}
+      {{- with .Values.image.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: grundsteuerportal
+          image: {{ include "grundsteuer.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            # Alle nicht-geheimen Werte (Pfade, API-Adresse, Zeitzone) aus dem ConfigMap.
+            - configMapRef:
+                name: {{ include "grundsteuer.fullname" . }}
+          env:
+            # ASPNETCORE_HTTP_PORTS kommt aus dem ConfigMap; es steht hier nur, damit die
+            # Portnummer der Probes und des Containers an einer Stelle sichtbar bleibt.
+            - name: DOTNET_ENVIRONMENT
+              value: "Production"
+            # Das Salt wird ausschliesslich per secretKeyRef eingebunden - NICHT als Klartext,
+            # sonst waere das Secret sinnlos (Wert waere im Deployment-Manifest lesbar).
+            - name: Datenbank__IdNrSalt
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "grundsteuer.fullname" . }}
+                  key: Datenbank__IdNrSalt
+            {{- if .Values.api.zusatzCaDatei }}
+            # Vertrauen fuer ein selbst ausgestelltes Zertifikat der ELSTER-WebAPI.
+            - name: SSL_CERT_FILE
+              value: {{ .Values.api.zusatzCaDatei | quote }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: daten
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: daten
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.existingClaim | default (include "grundsteuer.fullname" .) }}
+          {{- else }}
+          # Kein persistentes Volume: die Datenbank liegt im Container und ist nach einem
+          # Neustart weg. Nur fuer Tests gedacht (values: persistence.enabled=false).
+          emptyDir: {}
+          {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

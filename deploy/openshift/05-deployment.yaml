@@ -1,0 +1,117 @@
+# =============================================================================================
+#  Deployment: Die Anwendung
+#
+#  Erzeugt aus deploy/helm/grundsteuerportal. Aenderungen gehoeren ins Chart, sonst
+#  laufen beide Fassungen auseinander. Erneut erzeugen:
+#     helm template grundsteuer deploy/helm/grundsteuerportal -n grundsteuer
+# =============================================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grundsteuer-grundsteuerportal
+  labels:
+    helm.sh/chart: grundsteuerportal-1.0.0
+    app.kubernetes.io/name: grundsteuerportal
+    app.kubernetes.io/instance: grundsteuer
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: grundsteuerportal
+  annotations:
+    # Prueft die Konfiguration und bricht bei Widerspruechen den Build ab (Helm 'fail'):
+    # Datenpfad ausserhalb des Volumes bzw. mehrere Instanzen ohne Sitzungsaffinitaet.
+    # Beides sind stille Fehler zur Laufzeit - die App startet, nur die Daten sind spaeter weg.
+    
+    
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grundsteuerportal
+      app.kubernetes.io/instance: grundsteuer
+  strategy:
+    rollingUpdate: {}
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        # Erzwingt einen Rollout bei geaenderter Konfiguration: die Pod-Vorlage waere sonst
+        # identisch und Kubernetes wuerde die laufenden Pods nicht ersetzen.
+        checksum/config: 1ec5d6f6e91a0121926f017851a4d43b3415693ce0d251924f71a47ca078a33b
+        checksum/secret: 4b873044bdd68bf77d972f63b3d7598259ca2f5490e5860956efcc174a2c33d2
+      labels:
+        app.kubernetes.io/name: grundsteuerportal
+        app.kubernetes.io/instance: grundsteuer
+    spec:
+      serviceAccountName: default
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: grundsteuerportal
+          image: grundsteuerportal:1.0.0
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            # Alle nicht-geheimen Werte (Pfade, API-Adresse, Zeitzone) aus dem ConfigMap.
+            - configMapRef:
+                name: grundsteuer-grundsteuerportal
+          env:
+            # ASPNETCORE_HTTP_PORTS kommt aus dem ConfigMap; es steht hier nur, damit die
+            # Portnummer der Probes und des Containers an einer Stelle sichtbar bleibt.
+            - name: DOTNET_ENVIRONMENT
+              value: "Production"
+            # Das Salt wird ausschliesslich per secretKeyRef eingebunden - NICHT als Klartext,
+            # sonst waere das Secret sinnlos (Wert waere im Deployment-Manifest lesbar).
+            - name: Datenbank__IdNrSalt
+              valueFrom:
+                secretKeyRef:
+                  name: grundsteuer-grundsteuerportal
+                  key: Datenbank__IdNrSalt
+          volumeMounts:
+            - name: daten
+              mountPath: /data
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 0
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: 150m
+              memory: 384Mi
+      volumes:
+        - name: daten
+          persistentVolumeClaim:
+            claimName: grundsteuer-grundsteuerportal

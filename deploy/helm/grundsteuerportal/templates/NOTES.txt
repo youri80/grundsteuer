@@ -1,0 +1,48 @@
+GrundsteuerPortal wurde ausgerollt.
+
+Release:  {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+{{- if .Values.route.enabled }}
+
+Aufruf:
+{{- if .Values.route.host }}
+  https://{{ .Values.route.host }}
+{{- else }}
+  oc get route {{ include "grundsteuer.fullname" . }} -n {{ .Release.Namespace }} \
+    -o jsonpath='https://{.spec.host}{{"\n"}}'
+{{- end }}
+{{- else }}
+
+Route ist deaktiviert. Zugriff innerhalb des Clusters ueber:
+  http://{{ include "grundsteuer.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+{{- end }}
+
+Pruefen, ob die Anwendung wirklich laeuft (nicht nur ob die Pods starten):
+  oc exec deploy/{{ include "grundsteuer.fullname" . }} -n {{ .Release.Namespace }} -- \
+    bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /health/ready HTTP/1.0\r\n\r\n" >&3 && head -c 400 <&3'
+
+Wichtige Endpunkte:
+  /health/live    Prozess laeuft (ohne Datenbankzugriff) - daran haengt die livenessProbe
+  /health/ready   Datenbank erreichbar (503 bei Ausfall) - daran haengt die readinessProbe
+  /health/assets  Blazor-Framework-Assets im Image vorhanden
+
+{{- if not .Values.persistence.enabled }}
+
+ACHTUNG: persistence.enabled ist false.
+  Die Datenbank liegt im Container. Beim naechsten Pod-Wechsel sind alle erfassten Meldungen
+  und der Statusverlauf verloren. Nur fuer Tests geeignet.
+{{- end }}
+
+{{- if eq .Values.app.idNrSalt "bitte-aendern-vor-produktivbetrieb" }}
+
+ACHTUNG: app.idNrSalt ist noch der Vorgabewert.
+  Vor dem Produktivbetrieb ein eigenes Salt setzen (values: app.idNrSalt). Ein Wechsel spaeter
+  macht bereits gespeicherte Hashes unvergleichbar.
+{{- end }}
+
+{{- if not .Values.api.istKonfiguriert }}
+
+Hinweis: Die ELSTER-WebAPI ist nicht konfiguriert (api.istKonfiguriert=false).
+  Entwuerfe werden lokal gespeichert. Uebermittlung, Statusabfrage und PDF-Export melden sich
+  mit klarer Meldung, bis api.basisAdresse und api.istKonfiguriert=true gesetzt sind.
+{{- end }}

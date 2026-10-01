@@ -32,6 +32,26 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.SnackbarVariant = Variant.Filled;
 });
 
+// ---------------------------------------------------------------------------------------------
+// Blazor Server / SignalR: Zeitlimits explizit setzen statt sich auf Router-Voreinstellungen
+// zu verlassen.
+//
+// Hintergrund: Der Blazor-Circuit laeuft ueber eine dauerhafte SignalR-Verbindung. Ein Router mit
+// kurzem Voreinstellungs-Timeout (ein HAProxy-Standard liegt bei 30s) trennt sie, sobald ein
+// Nutzer laenger nichts klickt - die Oberflaeche wirkt danach tot und verbindet sich neu. Das ist
+// besonders tueckisch, weil es nur in Phasen ohne Interaktion auftritt.
+//
+// Die Werte hier sind so gewaehlt, dass sie zu einem Route-Timeout von 300s passen:
+//   KeepAlive 15s (Voreinstellung) < ClientTimeout 60s
+// Die Route-Annotation im Helm-Chart muss dazu passen (haproxy.router.openshift.io/timeout).
+// ---------------------------------------------------------------------------------------------
+builder.Services.AddSignalR(optionen =>
+{
+    optionen.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    optionen.HandshakeTimeout = TimeSpan.FromSeconds(30);
+    optionen.KeepAliveInterval = TimeSpan.FromSeconds(15);
+});
+
 builder.Services.AddSingleton<GrundsteuerTheme>();
 
 // ---------------------------------------------------------------------------------------------
@@ -58,7 +78,7 @@ GrundsteuerService.SetzeIdNrSalt(builder.Configuration["Datenbank:IdNrSalt"]);
 // Zugriff auf die vorhandene ELSTER-WebAPI: Typed HttpClient.
 // Dieses Projekt selbst enthält KEINE Finanzverwaltungs-Schnittstelle - es ruft nur die
 // bestehende REST-WebAPI auf. Ist sie nicht erreichbar oder nicht konfiguriert
-// (Api:UseMock=true bzw. Api:IstKonfiguriert=false), bleibt die Oberfläche voll bedienbar:
+// (Api:IstKonfiguriert=false), bleibt die Oberfläche voll bedienbar:
 // Entwürfe gehen in die lokale SQLite-Ablage, nur die ELSTER-Aktionen melden sich klar.
 // ---------------------------------------------------------------------------------------------
 var apiBasis = builder.Configuration["Api:BasisAdresse"];

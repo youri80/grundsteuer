@@ -1,0 +1,38 @@
+# =============================================================================================
+#  ConfigMap: Nicht-geheime Konfiguration
+#
+#  Erzeugt aus deploy/helm/grundsteuerportal. Aenderungen gehoeren ins Chart, sonst
+#  laufen beide Fassungen auseinander. Erneut erzeugen:
+#     helm template grundsteuer deploy/helm/grundsteuerportal -n grundsteuer
+# =============================================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grundsteuer-grundsteuerportal
+  labels:
+    helm.sh/chart: grundsteuerportal-1.0.0
+    app.kubernetes.io/name: grundsteuerportal
+    app.kubernetes.io/instance: grundsteuer
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: grundsteuerportal
+data:
+  ASPNETCORE_HTTP_PORTS: "8080"
+  # ASPNETCORE_ENVIRONMENT wird bewusst NICHT gesetzt: Standard ist Production.
+  DOTNET_ENVIRONMENT: "Production"
+
+  # Zeitzone: wirkt auf Zeitstempel, die ohne explizite Zone ausgegeben werden.
+  TZ: "Europe/Berlin"
+
+  # Datenablage. MUSS unterhalb von persistence.mountPath liegen, sonst sind die Daten nach dem
+  # naechsten Pod-Wechsel weg - die Vorlage prueft das und bricht bei Widerspruch ab.
+  Datenbank__Pfad: "/data/grundsteuer.db"
+  Datenbank__DataProtectionPfad: "/data/keys"
+  Datenbank__DataProtectionApplicationName: "GrundsteuerPortal"
+
+  # Vorhandene ELSTER-WebAPI der Finanzverwaltung.
+  # IstKonfiguriert=false laesst die Oberflaeche rein lokal laufen (Entwuerfe in SQLite); nur die
+  # ELSTER-Aktionen (Uebermittlung, Statusabfrage, PDF) melden sich dann mit klarer Meldung.
+  Api__IstKonfiguriert: "false"
+  Api__BasisAdresse: "https://elster-api.intern:7443/"
+  Api__TimeoutSekunden: "60"

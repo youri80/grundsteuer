@@ -1,0 +1,28 @@
+{{/*
+  Persistentes Volume fuer SQLite-Datenbank und DataProtection-Schluessel.
+
+  Ohne dieses Volume waeren alle erfassten Meldungen und der Statusverlauf beim naechsten
+  Pod-Wechsel verloren - und mit frischen DataProtection-Schluesseln zusaetzlich alle Cookies
+  ungueltig (der Fehler zeigt sich erst nach dem naechsten Deployment, nicht sofort).
+*/}}
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "grundsteuer.fullname" . }}
+  labels:
+    {{- include "grundsteuer.labels" . | nindent 4 }}
+  {{- with .Values.persistence.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size }}
+  {{- if .Values.persistence.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName | quote }}
+  {{- end }}
+{{- end }}

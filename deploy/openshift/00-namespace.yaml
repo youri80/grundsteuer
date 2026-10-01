@@ -1,0 +1,48 @@
+# =============================================================================================
+#  Projekt (Namespace) fuer das GrundsteuerPortal.
+#
+#  OpenShift legt Projekte ueblicherweise mit 'oc new-project' an; diese Datei ist fuer
+#  GitOps-Pipelines gedacht, die Namespaces aus Manifesten erzeugen.
+# =============================================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: grundsteuer
+  labels:
+    app.kubernetes.io/part-of: grundsteuerportal
+  annotations:
+    # Oeffnet das Projekt fuer die Erkennung durch OpenShift-GitOps/Argo CD.
+    openshift.io/display-name: GrundsteuerPortal
+---
+# Obergrenze des Projekts. Ohne ResourceQuota kann ein einzelnes Deployment den Knoten fuellen;
+# Blazor Server haelt je Nutzer einen Circuit im Speicher, der Bedarf waechst also mit der
+# Zahl gleichzeitiger Nutzer.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: grundsteuer
+  namespace: grundsteuer
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    persistentvolumeclaims: "4"
+    requests.storage: 20Gi
+---
+# Standardgrenzen fuer alle Container im Projekt, die keine eigenen setzen.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: grundsteuer
+  namespace: grundsteuer
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 500m
+        memory: 768Mi
+      defaultRequest:
+        cpu: 150m
+        memory: 384Mi

@@ -4,7 +4,7 @@ namespace GrundsteuerPortal.Core.Api;
 
 /// <summary>
 /// Der einzige Zugang des Frontends zur ELSTER-WebAPI. Die UI kennt nur dieses Interface -
-/// Mock- und HTTP-Implementierung sind austauschbar (Konfiguration: "Api:UseMock").
+/// Mock- und HTTP-Implementierung sind austauschbar (Konfiguration: "Api:IstKonfiguriert").
 /// </summary>
 public interface IGrundsteuerApiService
 {

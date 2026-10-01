@@ -1,0 +1,33 @@
+# =============================================================================================
+#  Route: Zugang von aussen, TLS endet am Router
+#
+#  Erzeugt aus deploy/helm/grundsteuerportal. Aenderungen gehoeren ins Chart, sonst
+#  laufen beide Fassungen auseinander. Erneut erzeugen:
+#     helm template grundsteuer deploy/helm/grundsteuerportal -n grundsteuer
+# =============================================================================================
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: grundsteuer-grundsteuerportal
+  labels:
+    helm.sh/chart: grundsteuerportal-1.0.0
+    app.kubernetes.io/name: grundsteuerportal
+    app.kubernetes.io/instance: grundsteuer
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: grundsteuerportal
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+    router.openshift.io/cookie_name: grundsteuer_affinity
+spec:
+  path: "/"
+  to:
+    kind: Service
+    name: grundsteuer-grundsteuerportal
+    weight: 100
+  port:
+    targetPort: http
+  wildcardPolicy: None
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

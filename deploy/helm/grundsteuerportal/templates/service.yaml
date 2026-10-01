@@ -1,0 +1,30 @@
+{{/*
+  Service im Cluster.
+
+  sessionAffinity ist bei mehr als einer Instanz Pflicht: der Blazor-Circuit liegt im Speicher
+  der Instanz, die ihn aufgebaut hat. Ohne Affinitaet landet die SignalR-Verbindung auf einer
+  anderen Instanz und der Nutzer verliert seine Sitzung - ohne Fehlermeldung, die Oberflaeche
+  wirkt nur "zurueckgesetzt".
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "grundsteuer.fullname" . }}
+  labels:
+    {{- include "grundsteuer.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "grundsteuer.selectorLabels" . | nindent 4 }}
+  {{- if .Values.service.sessionAffinity }}
+  sessionAffinity: {{ .Values.service.sessionAffinity }}
+  {{- with .Values.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}

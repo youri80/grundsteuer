@@ -65,6 +65,12 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
     LC_ALL=C.UTF-8 \
     TZ=Europe/Berlin
 
+# HOME explizit auf ein beschreibbares Verzeichnis setzen.
+# Auf OpenShift laeuft der Container unter einer zufaelligen UID; deren HOME waere '/' und damit
+# nicht beschreibbar. .NET legt dort unter anderem den Schluesselbund der DataProtection ab,
+# sobald kein Verzeichnis konfiguriert ist - ohne die Variable scheitert das Schreiben.
+ENV HOME=/app
+
 # Datenbank ausserhalb des App-Verzeichnisses, damit ein Volume darauf gelegt werden kann.
 # ASP.NET Core ueberschreibt appsettings.json durch die gleichnamige Umgebungsvariable.
 ENV Datenbank__Pfad=/data/grundsteuer.db
@@ -82,9 +88,17 @@ ENV Datenbank__DataProtectionPfad=/data/keys \
 
 # Das Datenverzeichnis MUSS fuer den Laufzeitbenutzer beschreibbar sein: die App legt es beim
 # Start an und bricht sonst beim Seeding ab (der Prozess stirbt vor dem Serverstart, die
-# Health-Endpunkte kommen gar nicht erst hoch). Deshalb mkdir + chown VOR 'USER app'.
-# Die UID 1654 ist nicht erfunden, sondern aus dem dotnet-docker-Repo gelesen (APP_UID).
-RUN mkdir -p /data/keys && chown -R 1654:1654 /data
+# Health-Endpunkte kommen gar nicht erst hoch).
+#
+# WICHTIG fuer OpenShift: dort wird die USER-Angabe vom restricted-v2 SCC ueberschrieben und der
+# Container laeuft unter einer beliebigen, vorher unbekannten UID - aber immer mit der Gruppe 0.
+# Ein 'chown 1654:1654' wuerde dort ins Leere laufen: die zufaellige UID ist nicht Mitglied der
+# Gruppe 1654 und kann nicht schreiben. Deshalb Gruppe 0 + Gruppenrechte (chgrp -R 0 / chmod g=u).
+# Fuer Docker/Kubernetes mit UID 1654 funktioniert dieselbe Regel, weil der Eigentuemer seine
+# Rechte behaelt.
+RUN mkdir -p /data/keys /app && \
+    chgrp -R 0 /data /app && \
+    chmod -R g=u /data /app
 
 VOLUME ["/data"]
 

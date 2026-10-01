@@ -5,7 +5,7 @@ namespace GrundsteuerPortal.Core.Api;
 
 /// <summary>
 /// Vollständiger In-Memory-Mock des API-Service. Damit ist das Frontend ohne laufende WebAPI
-/// bedienbar (Konfiguration "Api:UseMock": true). Der Mock verhält sich bewusst wie die echte API:
+/// bedienbar (Konfiguration "Api:IstKonfiguriert": false). Der Mock verhält sich bewusst wie die echte API:
 /// er validiert, vergibt Ids und Referenzen, setzt Status und liefert Fehlerantworten.
 /// </summary>
 public sealed class MockGrundsteuerApiService : IGrundsteuerApiService

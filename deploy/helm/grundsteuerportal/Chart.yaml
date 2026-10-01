@@ -1,0 +1,40 @@
+apiVersion: v2
+name: grundsteuerportal
+description: |
+  Frontend für ELSTER-Grundsteuermeldungen (Blazor Server, .NET 10, MudBlazor).
+  Enthält ausschließlich die Oberfläche; die Anbindung an die Finanzverwaltung läuft
+  über eine vorhandene REST-WebAPI.
+type: application
+
+# version  = Version des Charts (bei jeder Chart-Änderung erhöhen)
+# appVersion = Version der Anwendung, die dieses Chart ausliefert
+version: 1.0.0
+appVersion: "1.0.0"
+
+# Getestet gegen OpenShift Container Platform 4.17.
+# Die verwendeten APIs sind in 4.17 alle aktuell:
+#   apps/v1 (Deployment)            statt DeploymentConfig - das ist seit 4.16 deprecated
+#   route.openshift.io/v1 (Route)   Support-Tier 1
+#   batch/v1 (CronJob)
+kubeVersion: ">=1.29.0-0"
+
+keywords:
+  - grundsteuer
+  - elster
+  - blazor
+  - mudblazor
+  - openshift
+
+home: https://github.com/youri80/grundsteuer
+sources:
+  - https://github.com/youri80/grundsteuer
+
+maintainers:
+  - name: youri80
+    url: https://github.com/youri80
+
+annotations:
+  # OpenShift erkennt das Chart damit als deploybar; die Angabe ist reine Metainformation.
+  charts.openshift.io/name: GrundsteuerPortal
+  # Hinweis für Nutzer: die App braucht ein beschreibbares Verzeichnis (SQLite + DataProtection).
+  charts.openshift.io/description: Grundsteuer-Formular-Frontend (Blazor Server)

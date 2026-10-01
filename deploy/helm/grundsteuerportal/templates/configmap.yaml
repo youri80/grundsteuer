@@ -1,0 +1,34 @@
+{{/*
+  Nicht-geheime Konfiguration einer Installation.
+  Die Werte werden im Deployment ueber envFrom eingebunden und ueberschreiben appsettings.json.
+
+  Hintergrund: Das Image ist fuer alle Installationen gleich; unterschieden wird ueber diese
+  Werte. Deshalb steht hier alles, was je Umgebung abweicht - aber nichts Geheimes
+  (das Salt liegt im Secret).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "grundsteuer.fullname" . }}
+  labels:
+    {{- include "grundsteuer.labels" . | nindent 4 }}
+data:
+  ASPNETCORE_HTTP_PORTS: "8080"
+  # ASPNETCORE_ENVIRONMENT wird bewusst NICHT gesetzt: Standard ist Production.
+  DOTNET_ENVIRONMENT: "Production"
+
+  # Zeitzone: wirkt auf Zeitstempel, die ohne explizite Zone ausgegeben werden.
+  TZ: {{ .Values.app.tz | quote }}
+
+  # Datenablage. MUSS unterhalb von persistence.mountPath liegen, sonst sind die Daten nach dem
+  # naechsten Pod-Wechsel weg - die Vorlage prueft das und bricht bei Widerspruch ab.
+  Datenbank__Pfad: {{ .Values.app.datenbankPfad | quote }}
+  Datenbank__DataProtectionPfad: {{ .Values.app.dataProtectionPfad | quote }}
+  Datenbank__DataProtectionApplicationName: {{ .Values.app.dataProtectionApplicationName | quote }}
+
+  # Vorhandene ELSTER-WebAPI der Finanzverwaltung.
+  # IstKonfiguriert=false laesst die Oberflaeche rein lokal laufen (Entwuerfe in SQLite); nur die
+  # ELSTER-Aktionen (Uebermittlung, Statusabfrage, PDF) melden sich dann mit klarer Meldung.
+  Api__IstKonfiguriert: {{ .Values.api.istKonfiguriert | quote }}
+  Api__BasisAdresse: {{ .Values.api.basisAdresse | quote }}
+  Api__TimeoutSekunden: {{ .Values.api.timeoutSekunden | quote }}

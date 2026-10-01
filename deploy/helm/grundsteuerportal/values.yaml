@@ -1,0 +1,259 @@
+# =============================================================================================
+#  Standardwerte. Für eine konkrete Installation über eine eigene values-Datei überschreiben,
+#  z. B.:
+#     helm upgrade --install grundsteuer ./deploy/helm/grundsteuerportal \
+#       -f meine-werte.yaml -n grundsteuer --create-namespace
+#
+#  Werte, die eine Installation unterscheiden, gehören NICHT ins Image, sondern hierhin
+#  (Salt, API-Adresse, Ressourcen, Hostname).
+# =============================================================================================
+
+# ---------------------------------------------------------------------------------------------
+#  Image
+# ---------------------------------------------------------------------------------------------
+image:
+  # In einem OpenShift-Cluster ist die interne Registry üblich, z. B.:
+  #   image-registry.openshift-image-registry.svc:5000/grundsteuer/grundsteuerportal
+  repository: grundsteuerportal
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+  # Für die interne OpenShift-Registry nötig, damit der Kubelet die ImageStream-Auflösung nutzt.
+  imagePullSecrets: []
+
+# ---------------------------------------------------------------------------------------------
+#  Anzahl der Instanzen
+#
+#  WICHTIG: Bei mehr als einer Instanz muss die Sitzungsaffinität greifen, sonst verliert ein
+#  Nutzer seinen Blazor-Circuit beim Wechsel auf eine andere Instanz (der Zustand liegt nur im
+#  Speicher der Instanz, die ihn aufgebaut hat). Das Chart setzt dafür:
+#    - Route: Cookie-Affinität (HAProxy-Voreinstellung, hier explizit belassen)
+#    - Service: sessionAffinity: ClientIP
+#  Bei 2+ Instanzen ist das keine Optimierung, sondern Voraussetzung für Funktion.
+# ---------------------------------------------------------------------------------------------
+replicaCount: 1
+
+# Strategie: Recreate, weil ein ReadWriteOnce-Volume nicht von zwei Pods gleichzeitig beschrieben
+# werden darf. Bei einem ReadWriteMany-Volume kann auf RollingUpdate umgestellt werden.
+strategy:
+  type: Recreate
+  rollingUpdate: {}
+
+# ---------------------------------------------------------------------------------------------
+#  Anwendungskonfiguration
+# ---------------------------------------------------------------------------------------------
+app:
+  # Pfad zur SQLite-Datei. MUSS unterhalb von persistence.mountPath liegen, sonst sind die Daten
+  # beim nächsten Pod-Wechsel verloren.
+  datenbankPfad: /data/grundsteuer.db
+
+  # Salt zur Pseudonymisierung der Steueridentifikationsnummer (§ 139 AO).
+  # UNBEDINGT ändern. Achtung: ein Wechsel macht bereits gespeicherte Hashes unvergleichbar.
+  # Wird als Umgebungsvariable gesetzt (Datenbank__IdNrSalt).
+  idNrSalt: "bitte-aendern-vor-produktivbetrieb"
+
+  # DataProtection-Schlüssel: ohne persistierten Ablageort erzeugt jeder neue Pod frische
+  # Schlüssel, und alle bestehenden Cookies (Blazor-Circuit, Antiforgery) werden ungültig.
+  dataProtectionPfad: /data/keys
+  dataProtectionApplicationName: GrundsteuerPortal
+
+  # Zeitzone für die Anzeige von Datums- und Zeitwerten.
+  tz: Europe/Berlin
+
+# ---------------------------------------------------------------------------------------------
+#  Vorhandene ELSTER-WebAPI der Finanzverwaltung
+#
+#  IstKonfiguriert=false: Entwürfe werden lokal in SQLite gespeichert, nur die ELSTER-Aktionen
+#  (Übermittlung, Statusabfrage, PDF) melden sich mit klarer Meldung. So lässt sich die
+#  Oberfläche ohne Anbindung betreiben.
+# ---------------------------------------------------------------------------------------------
+api:
+  istKonfiguriert: false
+  basisAdresse: "https://elster-api.intern:7443/"
+  timeoutSekunden: 60
+  # Vertrauen des Zertifikats der WebAPI. Für ein selbst ausgestelltes Zertifikat der
+  # Finanzverwaltung: ein Secret mit der CA bereitstellen und hier den Dateinamen angeben.
+  # Die CA muss zusätzlich als Datei gemountet werden (extraVolumes/extraVolumeMounts).
+  zusatzCaDatei: ""
+
+# ---------------------------------------------------------------------------------------------
+#  Sicherheit
+#
+#  Das Image ist für OpenShift vorbereitet: Verzeichnisse sind der Gruppe 0 zugeordnet und
+#  gruppenschreibbar, HOME zeigt auf ein beschreibbares Verzeichnis.
+#
+#  runAsUser wird ABSICHTLICH NICHT gesetzt: der restricted-v2 SCC vergibt eine beliebige UID aus
+#  dem Projektbereich (Strategie MustRunAsRange). Ein fest eingetragenes runAsUser führt dazu, dass
+#  der Pod abgelehnt wird - das ist eine häufige Fehlerquelle.
+#
+#  Der Wert runAsNonRoot=true ist mit restricted-v2 verträglich und schützt zusätzlich.
+# ---------------------------------------------------------------------------------------------
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+# ---------------------------------------------------------------------------------------------
+#  Ressourcen
+#
+#  Blazor Server hält je Nutzer einen Circuit im Speicher; der Bedarf wächst also mit der Zahl
+#  gleichzeitiger Nutzer. Die Grenzen sind daher konservativ gesetzt und sollten anhand echter
+#  Nutzung angepasst werden.
+# ---------------------------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 150m
+    memory: 384Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# ---------------------------------------------------------------------------------------------
+#  Persistenz (SQLite-Datei + DataProtection-Schlüssel)
+#
+#  Ohne Persistenz sind die erfassten Meldungen und der Statusverlauf beim nächsten Pod-Wechsel
+#  verloren. Für Tests lässt sich persistence.enabled=false setzen - dann liegt die Datenbank im
+#  Container und ist nach einem Neustart weg.
+#
+#  accessModes: ReadWriteOnce genügt (ein Pod). Für strategy=RollingUpdate wird ReadWriteMany
+#  gebraucht.
+# ---------------------------------------------------------------------------------------------
+persistence:
+  enabled: true
+  mountPath: /data
+  accessModes:
+    - ReadWriteOnce
+  size: 2Gi
+  storageClassName: ""
+  # Vorhandenen PVC verwenden statt einen neuen anzulegen:
+  existingClaim: ""
+  annotations: {}
+
+# ---------------------------------------------------------------------------------------------
+#  Route (OpenShift)
+#
+#  Die App hört im Container nur auf HTTP; TLS endet am Router (edge).
+#  insecureEdgeTerminationPolicy=Redirect: HTTP wird auf HTTPS umgeleitet.
+#
+#  Das timeout ist bewusst hoch gesetzt: der Blazor-Circuit läuft über eine dauerhafte
+#  SignalR-Verbindung, und der HAProxy-Voreinstellungswert liegt bei 30s. Er trennt die
+#  Verbindung, sobald ein Nutzer längere Zeit nichts anklickt - die Oberfläche wirkt danach tot.
+#  Der Wert muss mindestens dem doppelten ClientTimeout der App entsprechen (dort 60s).
+# ---------------------------------------------------------------------------------------------
+route:
+  enabled: true
+  # Leer lassen: OpenShift vergibt automatisch einen Hostnamen nach dem Router-Suffix.
+  host: ""
+  path: /
+  annotations:
+    haproxy.router.openshift.io/timeout: 300s
+    # Sticky Sessions für den Blazor-Circuit: die Voreinstellung des Routers ist Cookie-Affinität.
+    # disable_cookies wird daher NICHT gesetzt (das würde die Affinität abschalten).
+    router.openshift.io/cookie_name: grundsteuer_affinity
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# ---------------------------------------------------------------------------------------------
+#  Service
+#
+#  sessionAffinity ist bei mehr als einer Instanz Pflicht: der Blazor-Circuit liegt im Speicher
+#  einer Instanz; ohne Affinität landet die SignalR-Verbindung auf einer anderen und der Nutzer
+#  verliert seine Sitzung.
+# ---------------------------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 8080
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
+
+# ---------------------------------------------------------------------------------------------
+#  Zustandsprüfungen
+#
+#  startup   -> /health/live  : reine Wartezeit, bis der Prozess antwortet (SQLite-Migration)
+#  liveness  -> /health/live  : nur "läuft der Prozess" - OHNE Datenbankzugriff
+#  readiness -> /health/ready : mit Datenbankzugriff, 503 bei Ausfall
+#
+#  Die Trennung ist wichtig: würde die liveness-Prüfung die Datenbank mitprüfen, würde ein
+#  vorübergehender Datenbankausfall den Pod in eine Neustartschleife schicken - was das Problem
+#  nicht löst, sondern verschärft.
+# ---------------------------------------------------------------------------------------------
+probes:
+  startup:
+    enabled: true
+    path: /health/live
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 24
+  liveness:
+    enabled: true
+    path: /health/live
+    initialDelaySeconds: 0
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    path: /health/ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# ---------------------------------------------------------------------------------------------
+#  Platzierung und Streuung
+# ---------------------------------------------------------------------------------------------
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+# ---------------------------------------------------------------------------------------------
+#  ServiceAccount
+#
+#  Standardmäßig wird keiner angelegt: die App greift nicht auf die Kubernetes-API zu, also
+#  braucht sie keine Berechtigungen. Der Pod nutzt den 'default'-ServiceAccount des Projekts.
+# ---------------------------------------------------------------------------------------------
+serviceAccount:
+  create: false
+  name: ""
+  annotations: {}
+
+# ---------------------------------------------------------------------------------------------
+#  Zusätzliche Umgebungsvariablen, Volumes und VolumeMounts
+#  (z. B. für ein Zertifikat der ELSTER-WebAPI oder eine externe Konfiguration)
+# ---------------------------------------------------------------------------------------------
+extraEnv: []
+#  - name: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+#    value: "true"
+extraVolumes: []
+#  - name: elster-ca
+#    secret:
+#      secretName: elster-ca
+extraVolumeMounts: []
+#  - name: elster-ca
+#    mountPath: /certs/elster-ca.crt
+#    subPath: ca.crt
+#    readOnly: true
+
+# ---------------------------------------------------------------------------------------------
+#  Pod-Annotationen und -Labels
+# ---------------------------------------------------------------------------------------------
+podAnnotations: {}
+podLabels: {}
+
+# ---------------------------------------------------------------------------------------------
+#  Automatischer Neustart des Deployments bei Änderung der Konfiguration
+#  (verhindert, dass ein rollout wegen unveränderter Pod-Vorlage ausbleibt)
+# ---------------------------------------------------------------------------------------------
+reloader:
+  enabled: true
