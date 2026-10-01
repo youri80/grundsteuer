@@ -1,0 +1,310 @@
+/* -------------------------------------------------------------------------------------------
+   GrundsteuerPortal – ergänzende Stile zu MudBlazor.
+   Bewusst schlank: alles Layoutrelevante kommt aus MudBlazor, hier steht nur, was
+   die Komponentenbibliothek nicht liefert (Barrierefreiheit, Kennzahlen, Prüfblatt-Optik).
+   ------------------------------------------------------------------------------------------- */
+
+:root {
+    --portal-radius: 10px;
+    --portal-linie: var(--mud-palette-lines-default);
+}
+
+/* Nur für Screenreader: Seitenüberschrift bleibt für die Struktur vorhanden. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Sichtbarer Fokusrahmen – Voraussetzung für Tastaturbedienung. */
+:focus-visible {
+    outline: 3px solid var(--mud-palette-primary);
+    outline-offset: 2px;
+}
+
+.mud-main-content {
+    background-color: var(--mud-palette-background);
+    min-height: calc(100vh - 64px);
+}
+
+.app-bar-titel {
+    letter-spacing: 0.2px;
+}
+
+.app-bar-untertitel {
+    opacity: 0.85;
+}
+
+.nav-abschnitt {
+    color: var(--mud-palette-text-secondary) !important;
+    letter-spacing: 0.08em;
+}
+
+.drawer-fuss {
+    margin-top: auto;
+    padding: 1rem 0.5rem 1.5rem 0.5rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+/* Seitenkopf: Überschrift links, Aktionen rechts – bricht auf schmalen Geräten um. */
+.seitenkopf {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.seitenkopf-aktionen {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Kennzahlenkacheln im Dashboard */
+.kennzahl {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    border-radius: var(--portal-radius);
+    border: 1px solid var(--portal-linie);
+    height: 100%;
+}
+
+.kennzahl .mud-icon-root {
+    font-size: 2.25rem !important;
+}
+
+/* Zeilenhervorhebung nach Status */
+.zeile-aufmerksamkeit {
+    background-color: rgba(178, 94, 0, 0.06) !important;
+}
+
+.zeile-erledigt {
+    background-color: rgba(30, 123, 77, 0.05) !important;
+}
+
+.zeilen-aktionen {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.leerzustand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1rem;
+    text-align: center;
+    color: var(--mud-palette-text-secondary);
+}
+
+.leerzustand .mud-icon-root {
+    font-size: 3rem !important;
+    opacity: 0.5;
+}
+
+/* Wizard */
+.wizard-papier {
+    padding: 1.5rem;
+    border-radius: var(--portal-radius);
+    border: 1px solid var(--portal-linie);
+}
+
+.schritt-hinweise {
+    margin-top: 1.5rem;
+}
+
+.abschluss {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1rem;
+    text-align: center;
+}
+
+/* Zusammenfassung / Prüfblatt: Werte rechtsbündig, Beschriftung zurückhaltend. */
+.pruef-tabelle table {
+    width: 100%;
+}
+
+.pruef-tabelle td:first-child {
+    color: var(--mud-palette-text-secondary);
+    width: 42%;
+    white-space: normal;
+}
+
+.pruef-tabelle td:last-child {
+    font-weight: 500;
+}
+
+.font-mono {
+    font-family: "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    letter-spacing: 0.02em;
+}
+
+/* Formeln im Hilfetext: hervorgehoben und waagerecht scrollbar, ohne die Zeile zu sprengen. */
+.code-block {
+    display: block;
+    margin: 0.75rem 0;
+    padding: 0.75rem 1rem;
+    background-color: var(--mud-palette-background-gray);
+    border-left: 3px solid var(--mud-palette-primary);
+    border-radius: var(--portal-radius);
+    font-family: "SFMono-Regular", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+    font-size: 0.85rem;
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.eigentuemer-zeile {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--portal-linie);
+}
+
+.eigentuemer-zeile:last-child {
+    border-bottom: none;
+}
+
+.eigentuemer-panel {
+    border: 1px solid var(--portal-linie) !important;
+    border-radius: var(--portal-radius) !important;
+    margin-bottom: 0.75rem;
+}
+
+.eigentuemer-titel {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Anteilsprüfung: Balken und Text müssen dieselbe Aussage machen. */
+.anteils-leiste {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--portal-linie);
+    border-radius: var(--portal-radius);
+    background-color: var(--mud-palette-surface);
+}
+
+.anteils-balken {
+    flex: 1 1 auto;
+    min-width: 120px;
+}
+
+.anteils-text.text-success {
+    color: #1E7B4D;
+}
+
+.anteils-text.text-warning {
+    color: #B25E00;
+}
+
+.anteils-text.text-error {
+    color: #B3261E;
+}
+
+/* Ergebnisbereich in der Zusammenfassung */
+.ergebnis-karte {
+    border: 1px solid var(--portal-linie);
+    border-left: 4px solid var(--mud-palette-primary);
+    border-radius: var(--portal-radius);
+}
+
+.ergebnis-betrag {
+    color: var(--mud-palette-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.lagefaktor-karte {
+    border: 1px solid var(--portal-linie);
+    border-radius: var(--portal-radius);
+    height: 100%;
+}
+
+.lagefaktor-zeile {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.uebermittlungs-karte {
+    border: 1px solid var(--portal-linie);
+    border-radius: var(--portal-radius);
+    background-color: var(--mud-palette-surface);
+}
+
+.hinweis-zeile {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--portal-linie);
+}
+
+.hinweis-zeile:last-child {
+    border-bottom: none;
+}
+
+/* Ländermodelle */
+.modell-kopf {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.modell-kopf .mud-icon-root {
+    font-size: 1.75rem !important;
+}
+
+.hinweis-panel,
+.hinweis-panel .mud-expand-panel {
+    box-shadow: none;
+}
+
+/* Feine Anpassung der Tabellenkopfzeile: ruhiger, gut lesbar. */
+.mud-table-head .mud-table-cell {
+    font-weight: 600;
+    color: var(--mud-palette-text-secondary);
+    text-transform: none;
+    letter-spacing: 0.01em;
+}
+
+/* Numerische Spalten sollen beim Sortieren nicht springen. */
+.mud-table-cell .nummer {
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 600px) {
+    .wizard-papier {
+        padding: 1rem;
+    }
+
+    .seitenkopf-aktionen {
+        width: 100%;
+    }
+
+    .anteils-leiste {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+/* Reduzierte Bewegung respektieren. */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}

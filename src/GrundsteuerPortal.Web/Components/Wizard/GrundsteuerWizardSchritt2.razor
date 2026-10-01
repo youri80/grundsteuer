@@ -1,0 +1,264 @@
+@using GrundsteuerPortal.Core.Api
+@using GrundsteuerPortal.Web.Components.Shared
+@implements IDisposable
+
+@* Schritt 2: Grundstücksdaten. Die Pflichtfelder hängen vom Modell des Bundeslandes ab -
+   deshalb wird nur verlangt, was das jeweilige Land wirklich bewertet. *@
+
+<MudText Typo="Typo.h5" GutterBottom="true">Grundstücksdaten</MudText>
+<MudText Typo="Typo.body2" Class="text-secondary mb-4">
+    Katasterangaben und Flächen. Die Angaben finden Sie im Grundbuchauszug, im
+    Liegenschaftskataster oder auf dem letzten Bescheid.
+</MudText>
+
+<MudGrid Spacing="3">
+    <MudItem xs="12" md="8">
+        <MudTextField T="string" Value="Sitzung.Meldung.Gemarkung" ValueChanged="GemarkungGeaendert"
+                      Label="Gemarkung" Required="true" RequiredError="Die Gemarkung ist erforderlich."
+                      Variant="Variant.Outlined" aria-label="Gemarkung" />
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudTextField T="string" Value="Sitzung.Meldung.Gemarkungsnummer" ValueChanged="GemarkungsnummerGeaendert"
+                      Label="Gemarkungsnummer (6-stellig)" Variant="Variant.Outlined" MaxLength="6"
+                      Error="@_gemarkungsnummerFehler" ErrorText="@_gemarkungsnummerFehlertext"
+                      aria-label="Gemarkungsnummer" />
+    </MudItem>
+
+    <MudItem xs="12" md="4">
+        <MudTextField T="string" Value="Sitzung.Meldung.Flur" ValueChanged="FlurGeaendert"
+                      Label="Flur" Variant="Variant.Outlined"
+                      HelperText="Nicht jede Gemarkung hat Fluren – dann leer lassen."
+                      aria-label="Flur" />
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudTextField T="string" Value="Sitzung.Meldung.FlurstueckZaehler" ValueChanged="ZaehlerGeaendert"
+                      Label="Flurstückzähler" Required="true" RequiredError="Der Flurstückzähler ist erforderlich."
+                      Variant="Variant.Outlined" Immediate="false"
+                      Error="@_flurstueckFehler" ErrorText="@_flurstueckFehlertext"
+                      aria-label="Flurstückzähler" />
+    </MudItem>
+    <MudItem xs="12" md="4">
+        <MudTextField T="string" Value="Sitzung.Meldung.FlurstueckNenner" ValueChanged="NennerGeaendert"
+                      Label="Flurstücknenner" Variant="Variant.Outlined" Immediate="false"
+                      HelperText="Leer lassen, wenn das Flurstück keinen Nenner hat."
+                      Error="@_flurstueckFehler" ErrorText="@_flurstueckFehlertext"
+                      aria-label="Flurstücknenner" />
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudTextField T="string" Value="Sitzung.Meldung.Grundbuchblatt" ValueChanged="GrundbuchblattGeaendert"
+                      Label="Grundbuchblatt" Variant="Variant.Outlined"
+                      HelperText="Angabe aus dem Grundbuchauszug; im Erbbaurecht das Blatt des Erbbauberechtigten."
+                      aria-label="Grundbuchblatt" />
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudSelect T="Grundstuecksart" Value="Sitzung.Meldung.Grundstuecksart" ValueChanged="GrundstuecksartGeaendert"
+                   Label="Art des Grundstücks" Variant="Variant.Outlined" Required="true"
+                   aria-label="Art des Grundstücks">
+            @foreach (var art in Enum.GetValues<Grundstuecksart>())
+            {
+                <MudSelectItem T="Grundstuecksart" Value="@art">@art.AnzeigeName()</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+
+    <MudItem xs="12"><MudDivider Class="my-1" /><MudText Typo="Typo.overline" Class="mt-2">Adresse des Grundstücks</MudText></MudItem>
+
+    <MudItem xs="12" sm="6" md="5">
+        <MudTextField T="string" Value="Sitzung.Meldung.Lage.Strasse" ValueChanged="StrasseGeaendert"
+                      Label="Straße" Variant="Variant.Outlined" aria-label="Straße" />
+    </MudItem>
+    <MudItem xs="6" sm="3" md="2">
+        <MudTextField T="string" Value="Sitzung.Meldung.Lage.Hausnummer" ValueChanged="HausnummerGeaendert"
+                      Label="Hausnummer" Variant="Variant.Outlined" aria-label="Hausnummer" />
+    </MudItem>
+    <MudItem xs="6" sm="3" md="2">
+        <MudTextField T="string" Value="Sitzung.Meldung.Lage.HausnummerZusatz" ValueChanged="HausnummerZusatzGeaendert"
+                      Label="Zusatz" Variant="Variant.Outlined" aria-label="Hausnummerzusatz" />
+    </MudItem>
+    <MudItem xs="6" sm="4" md="1">
+        <MudTextField T="string" Value="Sitzung.Meldung.Lage.Postleitzahl" ValueChanged="PlzGeaendert"
+                      Label="PLZ" Variant="Variant.Outlined" MaxLength="5" Immediate="false"
+                      Error="@_plzFehler" ErrorText="@_plzFehlertext" aria-label="Postleitzahl" />
+    </MudItem>
+    <MudItem xs="6" sm="8" md="2">
+        <MudTextField T="string" Value="Sitzung.Meldung.Lage.Ort" ValueChanged="OrtGeaendert"
+                      Label="Ort" Variant="Variant.Outlined" aria-label="Ort" />
+    </MudItem>
+
+    <MudItem xs="12"><MudDivider Class="my-1" /><MudText Typo="Typo.overline" Class="mt-2">Flächen und Wert</MudText></MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudNumericField T="decimal?" Value="Sitzung.Meldung.Grundstuecksflaeche"
+                         ValueChanged="GrundstuecksflaecheGeaendert"
+                         Label="Grundstücksfläche" Required="true" RequiredError="Die Grundstücksfläche ist erforderlich."
+                         Variant="Variant.Outlined" Min="0" Max="1000000" Step="1"
+                         Format="N2" Adornment="Adornment.End" AdornmentText="m²"
+                         Error="@_grundflaecheFehler" ErrorText="@_grundflaecheFehlertext"
+                         aria-label="Grundstücksfläche in Quadratmetern" />
+    </MudItem>
+
+    @if (Sitzung.Meldung.BundeslandInfo.BrauchtGebaeudeflaechen)
+    {
+        <MudItem xs="12" sm="6" md="4">
+            <MudNumericField T="decimal?" Value="Sitzung.Meldung.Wohnflaeche" ValueChanged="WohnflaecheGeaendert"
+                             Label="Wohnfläche" Variant="Variant.Outlined" Min="0" Max="100000" Step="1"
+                             Format="N2" Adornment="Adornment.End" AdornmentText="m²"
+                             HelperText="Nach Wohnflächenverordnung; bei Eigentum anteilig."
+                             aria-label="Wohnfläche in Quadratmetern" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="4">
+            <MudNumericField T="decimal?" Value="Sitzung.Meldung.Nutzflaeche" ValueChanged="NutzflaecheGeaendert"
+                             Label="Nutzfläche (nicht Wohnen)" Variant="Variant.Outlined" Min="0" Max="100000"
+                             Step="1" Format="N2" Adornment="Adornment.End" AdornmentText="m²"
+                             HelperText="Gewerbe, Büro, Lager – nur wenn vorhanden."
+                             aria-label="Nutzfläche in Quadratmetern" />
+        </MudItem>
+    }
+
+    @if (Sitzung.Meldung.BundeslandInfo.BrauchtBodenrichtwert)
+    {
+        <MudItem xs="12" sm="6" md="4">
+            <MudNumericField T="decimal?" Value="Sitzung.Meldung.Bodenrichtwert" ValueChanged="BodenrichtwertGeaendert"
+                             Label="Bodenrichtwert" Required="true"
+                             RequiredError="Für dieses Bundesland ist der Bodenrichtwert erforderlich."
+                             Variant="Variant.Outlined" Min="0" Max="100000" Step="1" Format="N2"
+                             Adornment="Adornment.End" AdornmentText="€/m²"
+                             HelperText="Aus dem Bodenrichtwertinformationssystem (BORIS)."
+                             aria-label="Bodenrichtwert" />
+        </MudItem>
+
+        @if (Sitzung.Meldung.BundeslandInfo.Modell is GrundsteuerModell.FlaechenFaktorVerfahren
+                or GrundsteuerModell.FlaechenLageModell)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudNumericField T="decimal?" Value="Sitzung.Meldung.DurchschnittlicherBodenrichtwert"
+                                 ValueChanged="DurchschnittsBodenrichtwertGeaendert"
+                                 Label="Durchschnittlicher Bodenrichtwert der Gemeinde"
+                                 Variant="Variant.Outlined" Min="0" Max="100000" Step="1" Format="N2"
+                                 Adornment="Adornment.End" AdornmentText="€/m²"
+                                 HelperText="Wird zur Bildung des Lagefaktors benötigt."
+                                 aria-label="Durchschnittlicher Bodenrichtwert der Gemeinde" />
+            </MudItem>
+
+            @if (Lagefaktor() is not null)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudPaper Class="pa-3 lagefaktor-karte" Elevation="0">
+                        <MudText Typo="Typo.caption">Lagefaktor (Vorschau)</MudText>
+                        <MudText Typo="Typo.h5">@Lagefaktor()?.ToString("0.00")</MudText>
+                        <MudText Typo="Typo.caption" Class="text-secondary">
+                            (Bodenrichtwert ÷ Gemeindedurchschnitt)^0,3 – gedämpft, damit extreme Lagen
+                            nicht durchschlagen.
+                        </MudText>
+                    </MudPaper>
+                </MudItem>
+            }
+        }
+    }
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudNumericField T="int?" Value="Sitzung.Meldung.Baujahr" ValueChanged="BaujahrGeaendert"
+                         Label="Baujahr" Variant="Variant.Outlined" Min="1800" Max="2100"
+                         Error="@_baujahrFehler" ErrorText="@_baujahrFehlertext"
+                         aria-label="Baujahr" />
+    </MudItem>
+
+    @if (Sitzung.Meldung.BundeslandInfo.BrauchtWohnlage)
+    {
+        <MudItem xs="12" sm="6" md="4">
+            <MudSelect T="Wohnlage?" Value="Sitzung.Meldung.Wohnlage" ValueChanged="WohnlageGeaendert"
+                       Label="Wohnlage" Required="true"
+                       RequiredError="In Hamburg ist die Wohnlage anzugeben."
+                       Variant="Variant.Outlined" aria-label="Wohnlage">
+                @foreach (var lage in Enum.GetValues<Wohnlage>())
+                {
+                    <MudSelectItem T="Wohnlage?" Value="@lage">@lage.AnzeigeName()</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+    }
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudSwitch T="bool" Value="Sitzung.Meldung.IstDenkmalgeschuetzt" ValueChanged="DenkmalGeaendert"
+                   Color="Color.Primary" Label="Baudenkmal (Denkmalschutz)"
+                   aria-label="Baudenkmal" />
+        <MudSwitch T="bool" Value="Sitzung.Meldung.IstSozialerWohnungsbau" ValueChanged="SozialbauGeaendert"
+                   Color="Color.Primary" Label="Geförderter Wohnungsbau"
+                   aria-label="Geförderter Wohnungsbau" />
+        @if (Sitzung.Meldung.IstDenkmalgeschuetzt || Sitzung.Meldung.IstSozialerWohnungsbau)
+        {
+            <MudText Typo="Typo.caption" Class="text-secondary">
+                Vergünstigungen werden bei der Steuermesszahl berücksichtigt und sind durch
+                Nachweise zu belegen.
+            </MudText>
+        }
+    </MudItem>
+
+    <MudItem xs="12">
+        <MudText Typo="Typo.overline">Weitere Flurstücke der wirtschaftlichen Einheit</MudText>
+        <MudText Typo="Typo.caption" Class="text-secondary mb-2">
+            Nur nötig, wenn die wirtschaftliche Einheit aus mehreren Flurstücken besteht.
+        </MudText>
+
+        @foreach (var (flurstueck, index) in Sitzung.Meldung.Flurstuecke.Select((f, i) => (f, i)))
+        {
+            <MudPaper Class="pa-3 mb-2" Elevation="0" Style="border:1px solid var(--mud-palette-lines-default)">
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" md="3">
+                        <MudTextField T="string" Value="flurstueck.Gemarkung"
+                                      ValueChanged="wert => FlurstueckGeaendert(flurstueck, f => f.Gemarkung = wert ?? string.Empty)"
+                                      Label="Gemarkung" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      aria-label="@($"Gemarkung Flurstück {index + 1}")" />
+                    </MudItem>
+                    <MudItem xs="4" md="1">
+                        <MudTextField T="string" Value="flurstueck.Flur"
+                                      ValueChanged="wert => FlurstueckGeaendert(flurstueck, f => f.Flur = wert)"
+                                      Label="Flur" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="4" md="2">
+                        <MudTextField T="string" Value="flurstueck.Zaehler"
+                                      ValueChanged="wert => FlurstueckGeaendert(flurstueck, f => f.Zaehler = wert)"
+                                      Label="Zähler" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="4" md="2">
+                        <MudTextField T="string" Value="flurstueck.Nenner"
+                                      ValueChanged="wert => FlurstueckGeaendert(flurstueck, f => f.Nenner = wert)"
+                                      Label="Nenner" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="6" md="2">
+                        <MudNumericField T="decimal?" Value="flurstueck.Flaeche"
+                                         ValueChanged="wert => FlurstueckGeaendert(flurstueck, f => f.Flaeche = wert)"
+                                         Label="Fläche" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                         Format="N2" Adornment="Adornment.End" AdornmentText="m²" />
+                    </MudItem>
+                    <MudItem xs="6" md="2" Class="d-flex align-center">
+                        <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Color="Color.Error"
+                                       OnClick="() => FlurstueckEntfernen(flurstueck)"
+                                       aria-label="@($"Flurstück {index + 1} entfernen")" />
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        }
+
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="FlurstueckHinzufuegen">Flurstück hinzufügen</MudButton>
+    </MudItem>
+</MudGrid>
+
+@if (HinweiseFuerSchritt().Count > 0)
+{
+    <div class="schritt-hinweise">
+        @foreach (var hinweis in HinweiseFuerSchritt())
+        {
+            <MudAlert Severity="@Schwere(hinweis.Schwere)" Variant="Variant.Outlined" Dense="true" Class="my-1">
+                <MudText Typo="Typo.body2">@hinweis.Meldung</MudText>
+                @if (!string.IsNullOrWhiteSpace(hinweis.Rechtsgrundlage))
+                {
+                    <MudText Typo="Typo.caption">Grundlage: @hinweis.Rechtsgrundlage</MudText>
+                }
+            </MudAlert>
+        }
+    </div>
+}

@@ -1,0 +1,140 @@
+@inject NavigationManager Navigation
+@inject MeldungsUebersichtState State
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject IGrundsteuerApiService Api
+@using GrundsteuerPortal.Web.Components.Shared
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Meldungsdetails</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Meldung is null)
+        {
+            <MudAlert Severity="Severity.Warning">Keine Daten vorhanden.</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.caption">Status</MudText>
+                    <div><StatusChip Status="@Meldung.Status" /></div>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.caption">Bundesland / Modell</MudText>
+                    <MudText Typo="Typo.body2">@Meldung.Bundesland.AnzeigeName() – @Meldung.ModellAnzeige</MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.caption">Aktenzeichen / Steuernummer</MudText>
+                    <MudText Typo="Typo.body2" Class="font-mono">
+                        @(Meldung.Aktenzeichen ?? Meldung.Steuernummer ?? "—")
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.caption">Finanzamt</MudText>
+                    <MudText Typo="Typo.body2">
+                        @Meldung.Bundesfinanzamtsnummer @Meldung.FinanzamtName
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.caption">Grundstück</MudText>
+                    <MudText Typo="Typo.body2">@Meldung.Lage.Einzeilig</MudText>
+                    <MudText Typo="Typo.body2">
+                        @Meldung.Gemarkung, Flur @Meldung.Flur, Flurstück @Meldung.FlurstueckZaehler@(string.IsNullOrWhiteSpace(Meldung.FlurstueckNenner) ? "" : $"/{Meldung.FlurstueckNenner}")
+                    </MudText>
+                    <MudText Typo="Typo.body2">
+                        Grundstücksfläche @Meldung.Grundstuecksflaeche?.ToString("N0") m²
+                        @if (Meldung.Wohnflaeche is > 0)
+                        {
+                            <text> · Wohnfläche @Meldung.Wohnflaeche?.ToString("N0") m²</text>
+                        }
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudText Typo="Typo.caption">Eigentümer</MudText>
+                    @foreach (var eigentuemer in Meldung.Eigentuemer)
+                    {
+                        <MudText Typo="Typo.body2">
+                            @eigentuemer.AnzeigeName – @((eigentuemer.Anteil * 100m).ToString("0.##")) %
+                        </MudText>
+                    }
+                </MudItem>
+
+                @if (Meldung.Berechnung is not null)
+                {
+                    <MudItem xs="12">
+                        <MudDivider Class="my-2" />
+                        <MudText Typo="Typo.caption">Steuermessbetrag (Vorschau)</MudText>
+                        <MudText Typo="Typo.h5">@MessbetragRechner.Euro(Meldung.Berechnung.Steuermessbetrag)</MudText>
+                        @if (!string.IsNullOrWhiteSpace(Meldung.Berechnung.Berechnungsweg))
+                        {
+                            <MudText Typo="Typo.caption" Class="text-secondary">@Meldung.Berechnung.Berechnungsweg</MudText>
+                        }
+                    </MudItem>
+                }
+
+                @if (Meldung.Hinweise.Count > 0)
+                {
+                    <MudItem xs="12">
+                        <MudDivider Class="my-2" />
+                        <MudText Typo="Typo.caption">Hinweise</MudText>
+                        @foreach (var hinweis in Meldung.Hinweise)
+                        {
+                            <MudAlert Severity="@NachSchwere(hinweis.Schwere)" Variant="Variant.Text" Dense="true"
+                                      Class="my-1">
+                                <MudText Typo="Typo.body2">@hinweis.Meldung</MudText>
+                                @if (!string.IsNullOrWhiteSpace(hinweis.Rechtsgrundlage))
+                                {
+                                    <MudText Typo="Typo.caption">Grundlage: @hinweis.Rechtsgrundlage</MudText>
+                                }
+                            </MudAlert>
+                        }
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        @if (Meldung is not null)
+        {
+            <MudButton StartIcon="@Icons.Material.Outlined.Sync" OnClick="StatusPruefenAsync"
+                       Disabled="@_beschaeftigt">Status prüfen</MudButton>
+        }
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Schliessen">Schließen</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public GrundsteuerMeldungDto? Meldung { get; set; }
+
+    private bool _beschaeftigt;
+
+    private void Schliessen() => Dialog.Close();
+
+    private async Task StatusPruefenAsync()
+    {
+        if (Meldung is null) return;
+        _beschaeftigt = true;
+        var status = await Api.PruefeStatusAsync(Meldung.Id);
+        _beschaeftigt = false;
+
+        if (status is null)
+        {
+            Snackbar.Add("Status konnte nicht abgerufen werden.", Severity.Warning);
+            return;
+        }
+
+        Meldung.Status = status.Status;
+        Snackbar.Add(status.Nachricht ?? status.Status.AnzeigeName(), Severity.Info);
+    }
+
+    private static Severity NachSchwere(HinweisSchwere schwere) => schwere switch
+    {
+        HinweisSchwere.Fehler => Severity.Error,
+        HinweisSchwere.Warnung => Severity.Warning,
+        _ => Severity.Info
+    };
+}

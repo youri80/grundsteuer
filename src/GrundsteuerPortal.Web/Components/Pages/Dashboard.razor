@@ -1,0 +1,247 @@
+@page "/"
+@page "/uebersicht"
+@using GrundsteuerPortal.Web.Components.Shared
+@implements IDisposable
+
+<PageTitle>Übersicht – GrundsteuerPortal</PageTitle>
+
+<MudText Typo="Typo.h1" Class="sr-only">Übersicht der Grundsteuermeldungen</MudText>
+
+<div class="seitenkopf">
+    <div>
+        <MudText Typo="Typo.h4">Grundsteuermeldungen</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary">
+            Erfasste und an ELSTER übermittelte Erklärungen zur Feststellung des Grundsteuerwerts.
+        </MudText>
+    </div>
+    <div class="seitenkopf-aktionen">
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Refresh"
+                   OnClick="LadenAsync" Disabled="@State.Laedt">Aktualisieren</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="/grundsteuer/neu">Neue Meldung erfassen</MudButton>
+    </div>
+</div>
+
+@if (State.Ladefehler is not null)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@State.Ladefehler</MudAlert>
+}
+
+<!-- Kennzahlen: geben sofort einen Überblick, ohne die Tabelle zu lesen. -->
+<MudGrid Class="mb-2">
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="kennzahl" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Outlined.Assignment" Color="Color.Primary" />
+            <div>
+                <MudText Typo="Typo.h4">@State.Kennzahlen.Gesamt</MudText>
+                <MudText Typo="Typo.caption">Meldungen gesamt</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="kennzahl" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Outlined.EditNote" Color="Color.Default" />
+            <div>
+                <MudText Typo="Typo.h4">@State.Kennzahlen.Entwuerfe</MudText>
+                <MudText Typo="Typo.caption">Entwürfe offen</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="kennzahl" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Outlined.HourglassTop" Color="Color.Info" />
+            <div>
+                <MudText Typo="Typo.h4">@State.Kennzahlen.Offen</MudText>
+                <MudText Typo="Typo.caption">Beim Finanzamt offen</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Class="kennzahl" Elevation="0">
+            <MudIcon Icon="@Icons.Material.Outlined.TaskAlt" Color="Color.Success" />
+            <div>
+                <MudText Typo="Typo.h4">@State.Kennzahlen.Festgestellt</MudText>
+                <MudText Typo="Typo.caption">Festgestellt</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+<MudPaper Class="pa-4" Elevation="0">
+    <!-- Filterleiste: Suche + Bundesland + Status. Filterzustand liegt im State,
+         damit er einen Navigationswechsel in den Wizard und zurück übersteht. -->
+    <MudGrid Spacing="2" Class="mb-1">
+        <MudItem xs="12" md="5">
+            <MudTextField T="string" Value="@State.Suche" ValueChanged="SucheGeaendert" Immediate="true"
+                          Placeholder="Aktenzeichen, Ort, Straße oder Eigentümer suchen"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                          aria-label="Meldungen durchsuchen" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="Bundesland?" Value="@State.FilterBundesland" ValueChanged="BundeslandGeaendert"
+                       Label="Bundesland" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                @foreach (var land in BundeslandKatalog.Alle.Keys)
+                {
+                    <MudSelectItem T="Bundesland?" Value="@land">@land.AnzeigeName()</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="MeldungStatus?" Value="@State.FilterStatus" ValueChanged="StatusGeaendert"
+                       Label="Status" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
+                @foreach (var status in Enum.GetValues<MeldungStatus>())
+                {
+                    <MudSelectItem T="MeldungStatus?" Value="@status">@status.AnzeigeName()</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" md="1" Class="d-flex align-center">
+            @if (State.AnzahlFilterAktiv > 0)
+            {
+                <MudTooltip Text="Alle Filter zurücksetzen">
+                    <MudIconButton Icon="@Icons.Material.Filled.FilterAltOff" OnClick="FilterZuruecksetzen"
+                                   aria-label="Filter zurücksetzen" Color="Color.Primary" />
+                </MudTooltip>
+            }
+        </MudItem>
+    </MudGrid>
+
+    <MudDataGrid T="GrundsteuerUebersichtDto"
+                 Items="@State.Gefiltert"
+                 Loading="@State.Laedt"
+                 Hover="true" Striped="true" Dense="false"
+                 Breakpoint="Breakpoint.Md"
+                 Filterable="false" SortMode="SortMode.Multiple"
+                 RowClassFunc="@ZeilenKlasse"
+                 aria-label="Liste der Grundsteuermeldungen">
+        <Columns>
+            <PropertyColumn Property="m => m.Status" Title="Status" Sortable="true">
+                <CellTemplate>
+                    <StatusChip Status="@context.Item.Status" />
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn Property="m => m.AktenzeichenAnzeige" Title="Aktenzeichen / Steuernummer" Sortable="true">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2" Class="font-mono">@context.Item.AktenzeichenAnzeige</MudText>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn Property="m => m.Grundstuecksbezeichnung" Title="Grundstück" Sortable="true">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2">@context.Item.Grundstuecksbezeichnung</MudText>
+                    <MudText Typo="Typo.caption" Class="text-secondary">@context.Item.Anschrift</MudText>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn Property="m => m.Ort" Title="Ort" Sortable="true" />
+
+            <PropertyColumn Property="m => m.Bundesland" Title="Bundesland" Sortable="true">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2">@context.Item.Bundesland.AnzeigeName()</MudText>
+                    <MudText Typo="Typo.caption" Class="text-secondary">@context.Item.ModellAnzeige</MudText>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn Property="m => m.ErstelltAm" Title="Erstellt" Sortable="true" Format="dd.MM.yyyy">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2">@context.Item.ErstelltAm.ToString("dd.MM.yyyy")</MudText>
+                    <MudText Typo="Typo.caption" Class="text-secondary">
+                        geändert @context.Item.ZuletztGeaendertAm.ToString("dd.MM.yyyy")
+                    </MudText>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn Property="m => m.FestgestellterMessbetrag" Title="Messbetrag" Sortable="true">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2">
+                        @MessbetragRechner.Euro(context.Item.FestgestellterMessbetrag)
+                    </MudText>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <TemplateColumn Title="Aktionen" Sortable="false" CellClass="text-right">
+                <CellTemplate>
+                    <div class="zeilen-aktionen">
+                        <MudTooltip Text="@BearbeitenText(context.Item)">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
+                                           Disabled="@IstGesperrt(context.Item)"
+                                           Href="@($"/grundsteuer/{context.Item.Id}")"
+                                           aria-label="@BearbeitenText(context.Item)" />
+                        </MudTooltip>
+
+                        <MudTooltip Text="Status beim Finanzamt prüfen">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Sync" Size="Size.Small"
+                                           OnClick="() => StatusPruefenAsync(context.Item)"
+                                           aria-label="Status beim Finanzamt prüfen" />
+                        </MudTooltip>
+
+                        <MudTooltip Text="Als PDF exportieren">
+                            <MudIconButton Icon="@Icons.Material.Outlined.PictureAsPdf" Size="Size.Small"
+                                           OnClick="() => PdfExportierenAsync(context.Item)"
+                                           aria-label="Meldung als PDF exportieren" />
+                        </MudTooltip>
+
+                        @if (context.Item.Status is MeldungStatus.Entwurf or MeldungStatus.Validierungsfehler)
+                        {
+                            <MudTooltip Text="Entwurf löschen">
+                                <MudIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small"
+                                               Color="Color.Error"
+                                               OnClick="() => LoeschenAsync(context.Item)"
+                                               aria-label="Entwurf löschen" />
+                            </MudTooltip>
+                        }
+
+                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true"
+                                 AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                                 aria-label="Weitere Aktionen">
+                            <MudMenuItem OnClick="() => KopierenAsync(context.Item)"
+                                         Icon="@Icons.Material.Outlined.ContentCopy">Kopieren</MudMenuItem>
+                            <MudMenuItem Disabled="@(!KannStorniertWerden(context.Item))"
+                                         OnClick="() => StornierenAsync(context.Item)"
+                                         Icon="@Icons.Material.Outlined.Block">Stornieren</MudMenuItem>
+                            <MudDivider Class="my-1" />
+                            <MudMenuItem OnClick="() => DetailsAnzeigenAsync(context.Item)"
+                                         Icon="@Icons.Material.Outlined.Info">Details</MudMenuItem>
+                        </MudMenu>
+                    </div>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+
+        <NoRecordsContent>
+            <div class="leerzustand">
+                <MudIcon Icon="@Icons.Material.Outlined.Inbox" Size="Size.Large" />
+                <MudText Typo="Typo.subtitle1" Class="mt-2">
+                    @(State.AnzahlFilterAktiv > 0
+                        ? "Keine Meldung passt zu den gesetzten Filtern."
+                        : "Es ist noch keine Grundsteuermeldung erfasst.")
+                </MudText>
+                @if (State.AnzahlFilterAktiv > 0)
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Class="mt-2"
+                               OnClick="FilterZuruecksetzen">Filter zurücksetzen</MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3"
+                               StartIcon="@Icons.Material.Filled.Add" Href="/grundsteuer/neu">
+                        Erste Meldung erfassen
+                    </MudButton>
+                }
+            </div>
+        </NoRecordsContent>
+
+        <LoadingContent>
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="48px" Class="mb-1" />
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="48px" Class="mb-1" />
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="48px" />
+        </LoadingContent>
+    </MudDataGrid>
+</MudPaper>
+
+<MudText Typo="Typo.caption" Class="mt-3 text-secondary">
+    @State.Gefiltert.Count von @State.Meldungen.Count Meldungen sichtbar.
+    Angaben ohne Gewähr – verbindlich ist der Bescheid des Finanzamts.
+</MudText>

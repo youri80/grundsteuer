@@ -1,0 +1,11 @@
+@* Statusanzeige einer Grundsteuermeldung - Farbe und Symbol kommen zentral aus StatusDarstellung. *@
+<MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
+         Color="@StatusDarstellung.Farbe(Status)"
+         Icon="@StatusDarstellung.Icon(Status)"
+         aria-label="@($"Status: {StatusDarstellung.Text(Status)}")">
+    @StatusDarstellung.Text(Status)
+</MudChip>
+
+@code {
+    [Parameter, EditorRequired] public MeldungStatus Status { get; set; }
+}

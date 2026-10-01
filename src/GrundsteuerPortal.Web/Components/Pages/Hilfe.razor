@@ -1,0 +1,147 @@
+@page "/hilfe"
+
+<PageTitle>Hilfe und Formate – GrundsteuerPortal</PageTitle>
+
+<MudText Typo="Typo.h1" Class="sr-only">Hilfe zu Formaten und Angaben</MudText>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Hilfe zu Angaben und Formaten</MudText>
+<MudText Typo="Typo.body2" Class="text-secondary mb-4">
+    Die häufigsten Rückfragen beim Ausfüllen – mit den Formaten, die ELSTER tatsächlich prüft.
+</MudText>
+
+<MudExpansionPanels Elevation="0" MultiExpansion="true">
+    <MudExpansionPanel Text="Aktenzeichen oder Steuernummer – was muss ich eingeben?"
+                       Icon="@Icons.Material.Outlined.Badge" Expanded="true">
+        <MudText Typo="Typo.body2">
+            Das hängt vom Bundesland des Grundstücks ab. Berlin, Bremen, Hamburg und Schleswig-Holstein
+            verwenden die Steuernummer; alle anderen Länder ein Aktenzeichen (Grundsteuerwert- bzw.
+            Einheitswertaktenzeichen). Das Portal schaltet das Feld automatisch passend um.
+        </MudText>
+        <MudSimpleTable Dense="true" Bordered="false" Class="pruef-tabelle mt-2">
+            <thead>
+                <tr><th>Format</th><th>Länder</th><th>Beispiel</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>17 Stellen, xxx/xxx/xxxx/xxx/xxx/x</td>
+                    <td>Bayern, Brandenburg, MV, RP, Saarland, Sachsen, Sachsen-Anhalt, Thüringen</td>
+                    <td class="font-mono">198/690/4000/000/001/2</td>
+                </tr>
+                <tr>
+                    <td>16 Stellen, xx/xxx/xxxx/xxx/xxx/x</td>
+                    <td>Baden-Württemberg, Niedersachsen</td>
+                    <td class="font-mono">31/005/0069/016/001/7</td>
+                </tr>
+                <tr>
+                    <td>16 Stellen, xx xxx xxxx xxx xxx x</td>
+                    <td>Hessen</td>
+                    <td class="font-mono">60 001 0001 001 005 1</td>
+                </tr>
+                <tr>
+                    <td>13 Stellen, xxx/xxx-G-xxxxx.p</td>
+                    <td>Nordrhein-Westfalen</td>
+                    <td class="font-mono">600/035-3-01285.1</td>
+                </tr>
+                <tr>
+                    <td>13 Stellen, FFFF0BBBUUUUP</td>
+                    <td>Berlin, Bremen, Hamburg, Schleswig-Holstein</td>
+                    <td class="font-mono">2216005432634</td>
+                </tr>
+            </tbody>
+        </MudSimpleTable>
+        <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true" Class="mt-2">
+            In Hessen wird die führende Null auf Bescheiden oft weggelassen, in ELSTER aber verlangt –
+            das Portal ergänzt sie automatisch und rechnet die Prüfziffer nach.
+        </MudAlert>
+    </MudExpansionPanel>
+
+    <MudExpansionPanel Text="Wo finde ich meine Steuer-Identifikationsnummer?"
+                       Icon="@Icons.Material.Outlined.Fingerprint">
+        <MudText Typo="Typo.body2">
+            Die elfstellige Identifikationsnummer (§ 139 AO) steht auf dem Einkommensteuerbescheid
+            oder auf der Lohnsteuerbescheinigung. Ist sie nicht auffindbar, erteilt das
+            Bundeszentralamt für Steuern Auskunft. Für juristische Personen tritt an ihre Stelle
+            die Steuernummer oder die Wirtschafts-Identifikationsnummer.
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mt-2">
+            Das Portal prüft die Nummer vollständig: Länge, die geforderte doppelte oder dreifache Ziffer,
+            das Verbot dreier aufeinanderfolgender gleicher Ziffern und die Prüfziffer.
+        </MudText>
+    </MudExpansionPanel>
+
+    <MudExpansionPanel Text="Welche Fläche trage ich ein?" Icon="@Icons.Material.Outlined.SquareFoot">
+        <MudSimpleTable Dense="true" Bordered="false" Class="pruef-tabelle">
+            <thead>
+                <tr><th>Angabe</th><th>Bedeutung</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Grundstücksfläche</td>
+                    <td>Amtliche Fläche des Flurstücks bzw. der wirtschaftlichen Einheit laut Liegenschaftskataster.
+                        Die Aufstandsfläche des Gebäudes wird nicht abgezogen.</td>
+                </tr>
+                <tr>
+                    <td>Wohnfläche</td>
+                    <td>Fläche der zu Wohnzwecken genutzten Gebäudeteile nach Wohnflächenverordnung.
+                        Ein häusliches Arbeitszimmer zählt zum Wohnen.</td>
+                </tr>
+                <tr>
+                    <td>Nutzfläche</td>
+                    <td>Alle übrigen Gebäudeflächen: Gewerbe, Büro, Lager, Praxis.</td>
+                </tr>
+                <tr>
+                    <td>Bodenrichtwert</td>
+                    <td>Der Zonenwert Ihrer Bodenrichtwertzone, abrufbar im Bodenrichtwertinformationssystem
+                        des jeweiligen Landes (z. B. BORIS).</td>
+                </tr>
+            </tbody>
+        </MudSimpleTable>
+        <MudText Typo="Typo.caption" Class="text-secondary mt-2">
+            Alle Flächen werden in der Berechnung auf volle Quadratmeter abgerundet.
+        </MudText>
+    </MudExpansionPanel>
+
+    <MudExpansionPanel Text="Der Lagefaktor – was rechnet das Portal?" Icon="@Icons.Material.Outlined.Tune">
+        <MudText Typo="Typo.body2">
+            In Hessen und Niedersachsen wird die Lage über den Bodenrichtwert abgebildet:
+        </MudText>
+        <pre class="code-block">Lagefaktor = (Bodenrichtwert / durchschnittlicher Bodenrichtwert der Gemeinde) ^ 0,3</pre>
+        <MudText Typo="Typo.body2">
+            Durch den Exponenten 0,3 schlagen Wertunterschiede nur gedämpft durch:
+            Bei doppeltem Bodenrichtwert ergibt sich rund 1,23 (also +23 %), bei halbem rund 0,81.
+            In Hessen wird der Faktor auf zwei Nachkommastellen abgerundet und der Steuermessbetrag
+            auf volle Euro.
+        </MudText>
+    </MudExpansionPanel>
+
+    <MudExpansionPanel Text="Wie hoch wird meine Grundsteuer?" Icon="@Icons.Material.Outlined.Calculate">
+        <MudText Typo="Typo.body2">
+            Dieses Portal zeigt den <strong>Steuermessbetrag</strong>. Die eigentliche Grundsteuer
+            ergibt sich erst mit dem Hebesatz der Gemeinde:
+        </MudText>
+        <pre class="code-block">Grundsteuer = Steuermessbetrag × Hebesatz der Gemeinde</pre>
+        <MudText Typo="Typo.body2">
+            Der Hebesatz wird von jeder Gemeinde selbst festgelegt und liegt häufig zwischen 200 %
+            und 600 %. Der im Portal angezeigte Messbetrag ist eine Vorschau zur Kontrolle –
+            verbindlich ist der Messbescheid des Finanzamts.
+        </MudText>
+    </MudExpansionPanel>
+
+    <MudExpansionPanel Text="Was passiert beim Übermitteln?" Icon="@Icons.Material.Outlined.Send">
+        <MudText Typo="Typo.body2">
+            Der Entwurf kann jederzeit gespeichert und später fortgesetzt werden. Erst der Schritt
+            „An ELSTER übermitteln“ gibt die Erklärung verbindlich ab; danach vergibt die
+            Finanzverwaltung eine Referenz. Inhaltliche Korrekturen sind anschließend nur noch über
+            eine berichtigte Erklärung möglich.
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mt-2">
+            Solange die Erklärung noch nicht abschließend bearbeitet ist, kann sie storniert werden.
+            Nach Ergehen des Messbescheids ist kein Storno mehr möglich.
+        </MudText>
+    </MudExpansionPanel>
+</MudExpansionPanels>
+
+<MudText Typo="Typo.caption" Class="text-secondary mt-4">
+    Angaben ohne Gewähr. Dieses Portal ersetzt keine Steuerberatung; verbindlich sind die
+    Entscheidungen der Finanzverwaltung.
+</MudText>

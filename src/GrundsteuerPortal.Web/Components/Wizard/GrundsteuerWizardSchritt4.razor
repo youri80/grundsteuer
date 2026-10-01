@@ -1,0 +1,260 @@
+@using GrundsteuerPortal.Core.Api
+@using GrundsteuerPortal.Web.Components.Shared
+@implements IDisposable
+
+@* Schritt 4: Zusammenfassung und Validierung.
+   Bewusst als "Prüfblatt" aufgebaut: alle Angaben wie im späteren Bescheid, darunter
+   Rechenweg, Hinweise und die Übermittlungs-Schaltfläche. *@
+
+<MudText Typo="Typo.h5" GutterBottom="true">Zusammenfassung und Prüfung</MudText>
+<MudText Typo="Typo.body2" Class="text-secondary mb-4">
+    Bitte alle Angaben mit dem Bescheid des Finanzamts vergleichen. Erst nach dem Absenden
+    wird die Erklärung verbindlich übermittelt.
+</MudText>
+
+@if (Sitzung.Fehler.Count > 0)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-3" Icon="@Icons.Material.Filled.Error">
+        <MudText Typo="Typo.subtitle2">
+            Die Erklärung kann noch nicht übermittelt werden.
+        </MudText>
+        <MudText Typo="Typo.body2">
+            @Sitzung.Fehler.Count Angabe(n) fehlen oder sind fehlerhaft. Bitte die betroffenen Schritte öffnen.
+        </MudText>
+    </MudAlert>
+}
+else
+{
+    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mb-3"
+              Icon="@Icons.Material.Filled.CheckCircle">
+        Alle Pflichtangaben sind vollständig und die Formate wurden geprüft.
+    </MudAlert>
+}
+
+<MudGrid Spacing="3">
+    <!-- Spalte 1: Stammdaten -->
+    <MudItem xs="12" lg="7">
+        <MudPaper Class="pa-4 mb-3" Elevation="0">
+            <MudText Typo="Typo.overline">Allgemeine Angaben</MudText>
+            <MudSimpleTable Dense="true" Bordered="false" Hover="false" Class="pruef-tabelle">
+                <tbody>
+                    <tr>
+                        <td>Bundesland</td>
+                        <td>@Sitzung.Meldung.Bundesland.AnzeigeName()</td>
+                    </tr>
+                    <tr>
+                        <td>Bewertungsmodell</td>
+                        <td>@Sitzung.Meldung.ModellAnzeige</td>
+                    </tr>
+                    <tr>
+                        <td>Erklärungsart</td>
+                        <td>@Sitzung.Meldung.Erklaerungsart.AnzeigeName()</td>
+                    </tr>
+                    <tr>
+                        <td>Hauptfeststellungszeitpunkt</td>
+                        <td>@Sitzung.Meldung.Hauptfeststellungszeitpunkt</td>
+                    </tr>
+                    <tr>
+                        <td>Finanzamt</td>
+                        <td>@Sitzung.Meldung.Bundesfinanzamtsnummer @Sitzung.Meldung.FinanzamtName</td>
+                    </tr>
+                    <tr>
+                        <td>@(Sitzung.Meldung.BundeslandInfo.Ordnungskriterium == Ordnungskriterium.Steuernummer ? "Steuernummer" : "Aktenzeichen")</td>
+                        <td class="font-mono">
+                            @(Sitzung.Meldung.Aktenzeichen ?? Sitzung.Meldung.Steuernummer ?? "—")
+                            @if (!string.IsNullOrWhiteSpace(Sitzung.Meldung.Aktenzeichen))
+                            {
+                                <MudText Typo="Typo.caption" Class="text-secondary">
+                                    @ElsterFormate.FormatiereAktenzeichen(Sitzung.Meldung.Aktenzeichen, Sitzung.Meldung.Bundesland)
+                                </MudText>
+                            }
+                        </td>
+                    </tr>
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-3" Elevation="0">
+            <MudText Typo="Typo.overline">Grundstück</MudText>
+            <MudSimpleTable Dense="true" Bordered="false" Class="pruef-tabelle">
+                <tbody>
+                    <tr>
+                        <td>Adresse</td>
+                        <td>@Sitzung.Meldung.Lage.Einzeilig</td>
+                    </tr>
+                    <tr>
+                        <td>Gemarkung / Flur / Flurstück</td>
+                        <td>
+                            @Sitzung.Meldung.Gemarkung
+                            @if (!string.IsNullOrWhiteSpace(Sitzung.Meldung.Flur))
+                            {
+                                <text>, Flur @Sitzung.Meldung.Flur</text>
+                            }
+                            , Flurstück @Sitzung.Meldung.FlurstueckZaehler@(string.IsNullOrWhiteSpace(Sitzung.Meldung.FlurstueckNenner) ? "" : $"/{Sitzung.Meldung.FlurstueckNenner}")
+                        </td>
+                    </tr>
+                    @if (Sitzung.Meldung.Flurstuecke.Count > 0)
+                    {
+                        <tr>
+                            <td>Weitere Flurstücke</td>
+                            <td>
+                                @foreach (var flurstueck in Sitzung.Meldung.Flurstuecke)
+                                {
+                                    <MudText Typo="Typo.body2">@flurstueck.Bezeichnung</MudText>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    <tr>
+                        <td>Art</td>
+                        <td>@Sitzung.Meldung.Grundstuecksart.AnzeigeName()</td>
+                    </tr>
+                    <tr>
+                        <td>Grundstücksfläche</td>
+                        <td>@Sitzung.Meldung.Grundstuecksflaeche?.ToString("N2") m²</td>
+                    </tr>
+                    @if (Sitzung.Meldung.Wohnflaeche is > 0)
+                    {
+                        <tr><td>Wohnfläche</td><td>@Sitzung.Meldung.Wohnflaeche?.ToString("N2") m²</td></tr>
+                    }
+                    @if (Sitzung.Meldung.Nutzflaeche is > 0)
+                    {
+                        <tr><td>Nutzfläche</td><td>@Sitzung.Meldung.Nutzflaeche?.ToString("N2") m²</td></tr>
+                    }
+                    @if (Sitzung.Meldung.Bodenrichtwert is not null)
+                    {
+                        <tr>
+                            <td>Bodenrichtwert</td>
+                            <td>@Sitzung.Meldung.Bodenrichtwert?.ToString("N2") €/m²</td>
+                        </tr>
+                    }
+                    @if (Sitzung.Meldung.Baujahr is not null)
+                    {
+                        <tr><td>Baujahr</td><td>@Sitzung.Meldung.Baujahr</td></tr>
+                    }
+                    @if (Sitzung.Meldung.Wohnlage is not null)
+                    {
+                        <tr><td>Wohnlage</td><td>@Sitzung.Meldung.Wohnlage?.AnzeigeName()</td></tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+
+        <MudPaper Class="pa-4" Elevation="0">
+            <MudText Typo="Typo.overline">Eigentümer</MudText>
+            @foreach (var eigentuemer in Sitzung.Meldung.Eigentuemer)
+            {
+                <div class="eigentuemer-zeile">
+                    <MudText Typo="Typo.body2">
+                        @eigentuemer.AnzeigeName
+                        <span class="text-secondary">– @eigentuemer.Art.AnzeigeName()</span>
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="text-secondary">
+                        @eigentuemer.Strasse @eigentuemer.Hausnummer, @eigentuemer.Postleitzahl @eigentuemer.Ort
+                        @if (!string.IsNullOrWhiteSpace(eigentuemer.IdNummer))
+                        {
+                            <span> · IdNr. @MaskiereIdNr(eigentuemer.IdNummer)</span>
+                        }
+                    </MudText>
+                    <MudText Typo="Typo.caption">Anteil: @((eigentuemer.Anteil * 100m).ToString("0.##")) %</MudText>
+                </div>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <!-- Spalte 2: Ergebnis und Rechenweg -->
+    <MudItem xs="12" lg="5">
+        <MudPaper Class="pa-4 ergebnis-karte" Elevation="0">
+            <MudText Typo="Typo.overline">Steuermessbetrag (Vorschau)</MudText>
+            <MudText Typo="Typo.h3" Class="ergebnis-betrag">
+                @MessbetragRechner.Euro(Sitzung.Meldung.Berechnung?.Steuermessbetrag)
+            </MudText>
+            <MudText Typo="Typo.caption" Class="text-secondary">
+                Der Messbetrag ist die Grundlage für die Grundsteuer der Gemeinde
+                (Messbetrag × Hebesatz = Grundsteuer). Der Hebesatz wird von der Gemeinde festgelegt.
+            </MudText>
+
+            @if (!string.IsNullOrWhiteSpace(Sitzung.Meldung.Berechnung?.Berechnungsweg))
+            {
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.caption" Class="text-secondary">Rechenweg</MudText>
+                <MudText Typo="Typo.body2">@Sitzung.Meldung.Berechnung!.Berechnungsweg</MudText>
+            }
+
+            @if (Sitzung.Meldung.Berechnung?.LageFaktor is not null)
+            {
+                <MudDivider Class="my-3" />
+                <div class="lagefaktor-zeile">
+                    <MudText Typo="Typo.caption">Lagefaktor</MudText>
+                    <MudText Typo="Typo.body1">@Sitzung.Meldung.Berechnung!.LageFaktor?.ToString("0.00")</MudText>
+                </div>
+                <MudText Typo="Typo.caption" Class="text-secondary">
+                    Der Lagefaktor gleicht Ihre Lage gegen den Gemeindedurchschnitt aus.
+                    Werte über 1,00 bedeuten eine überdurchschnittliche Lage.
+                </MudText>
+            }
+
+            <MudDivider Class="my-3" />
+            <MudText Typo="Typo.caption" Class="text-secondary">
+                Angaben ohne Gewähr. Verbindlich ist der Messbescheid des Finanzamts.
+            </MudText>
+        </MudPaper>
+
+        @if (Sitzung.Meldung.Hinweise.Count > 0)
+        {
+            <MudPaper Class="pa-4 mt-3" Elevation="0">
+                <MudText Typo="Typo.overline">Hinweise und Prüfergebnisse</MudText>
+                @foreach (var hinweis in Sitzung.Meldung.Hinweise)
+                {
+                    <div class="hinweis-zeile">
+                        <MudIcon Icon="@StatusDarstellung.IconFuerHinweis(hinweis.Schwere)"
+                                 Color="@StatusDarstellung.FarbeFuerHinweis(hinweis.Schwere)" Size="Size.Small" />
+                        <div>
+                            <MudText Typo="Typo.body2">@hinweis.Meldung</MudText>
+                            @if (!string.IsNullOrWhiteSpace(hinweis.Vorschlag))
+                            {
+                                <MudText Typo="Typo.caption">Vorschlag: @hinweis.Vorschlag</MudText>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(hinweis.Rechtsgrundlage))
+                            {
+                                <MudText Typo="Typo.caption" Class="text-secondary">
+                                    Grundlage: @hinweis.Rechtsgrundlage
+                                </MudText>
+                            }
+                        </div>
+                    </div>
+                }
+            </MudPaper>
+        }
+    </MudItem>
+</MudGrid>
+
+<MudPaper Class="pa-4 mt-4 uebermittlungs-karte" Elevation="0">
+    <MudGrid Spacing="2" Class="align-center">
+        <MudItem xs="12" md="7">
+            <MudText Typo="Typo.subtitle1">Erklärung verbindlich übermitteln</MudText>
+            <MudText Typo="Typo.body2" Class="text-secondary">
+                Nach der Übermittlung ist keine inhaltliche Änderung mehr möglich –
+                Korrekturen erfordern eine berichtigte Erklärung.
+                @if (!_bestaetigtErforderlich)
+                {
+                    <span> Bitte die Angaben bestätigen.</span>
+                }
+            </MudText>
+            <MudCheckBox T="bool" Value="_bestaetigtErforderlich" ValueChanged="BestaetigungGeaendert"
+                         Color="Color.Primary" Class="mt-2" Dense="true"
+                         Label="Ich habe die Angaben geprüft und bestätige ihre Richtigkeit."
+                         aria-label="Richtigkeit der Angaben bestätigen" />
+        </MudItem>
+        <MudItem xs="12" md="5" Class="text-md-right">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                       StartIcon="@Icons.Material.Filled.Send" Disabled="@UebermittlungGesperrt()"
+                       OnClick="UebermittelnAsync">
+                An ELSTER übermitteln
+            </MudButton>
+            <MudText Typo="Typo.caption" Class="text-secondary mt-2">
+                @Sitzung.Fehler.Count Fehler offen · Status: @Sitzung.Meldung.Status.AnzeigeName()
+            </MudText>
+        </MudItem>
+    </MudGrid>
+</MudPaper>

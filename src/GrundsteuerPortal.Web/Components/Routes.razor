@@ -1,0 +1,32 @@
+@* Routing und die beiden Provider, die die gesamte Anwendung tragen.
+   Die Provider müssen im interaktiven Renderkontext stehen - deshalb trägt die
+   Routes-Komponente in App.razor @rendermode="InteractiveServer". *@
+<MudThemeProvider Theme="@_theme" />
+
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+                <MudPaper Class="pa-8" Elevation="0">
+                    <MudText Typo="Typo.h4" GutterBottom="true">Seite nicht gefunden</MudText>
+                    <MudText Typo="Typo.body1">
+                        Die aufgerufene Adresse existiert in diesem Portal nicht.
+                    </MudText>
+                    <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary" Class="mt-4">
+                        Zur Übersicht
+                    </MudButton>
+                </MudPaper>
+            </MudContainer>
+        </LayoutView>
+    </NotFound>
+</Router>
+
+@code {
+    // Das Theme kommt aus der DI - eine eigene Instanz würde den Umschalter von den
+    // Komponenten trennen (Klick sichtbar, Theme unverändert).
+    [Inject] private GrundsteuerTheme _theme { get; set; } = default!;
+}

@@ -1,0 +1,135 @@
+@page "/grundsteuer/neu"
+@page "/grundsteuer/{Id:guid}"
+@using GrundsteuerPortal.Web.Components.Shared
+@using GrundsteuerPortal.Web.Components.Wizard
+@implements IDisposable
+
+<PageTitle>@(_istNeu ? "Neue Grundsteuermeldung" : "Grundsteuermeldung bearbeiten") – GrundsteuerPortal</PageTitle>
+
+<MudText Typo="Typo.h1" Class="sr-only">
+    @(_istNeu ? "Neue Grundsteuermeldung erfassen" : "Grundsteuermeldung bearbeiten")
+</MudText>
+
+<MudBreadcrumbs Items="_brotkrumen" Class="mb-2" />
+
+<div class="seitenkopf">
+    <div>
+        <MudText Typo="Typo.h4">
+            @(_istNeu ? "Neue Grundsteuermeldung" : "Grundsteuermeldung bearbeiten")
+        </MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary">
+            @Sitzung.Meldung.Bundesland.AnzeigeName() · @Sitzung.Meldung.ModellAnzeige
+            @if (!string.IsNullOrWhiteSpace(Sitzung.Meldung.Aktenzeichen))
+            {
+                <span> · Aktenzeichen @Sitzung.Meldung.Aktenzeichen</span>
+            }
+        </MudText>
+    </div>
+    <div class="seitenkopf-aktionen">
+        @if (Sitzung.Meldung.Status != MeldungStatus.Entwurf)
+        {
+            <StatusChip Status="@Sitzung.Meldung.Status" />
+        }
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Save"
+                   OnClick="EntwurfSpeichernAsync" Disabled="@Sitzung.Beschaeftigt">Entwurf speichern</MudButton>
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Close" OnClick="AbbrechenAsync"
+                   Disabled="@Sitzung.Beschaeftigt">Schließen</MudButton>
+    </div>
+</div>
+
+@if (_ladefehler is not null)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@_ladefehler</MudAlert>
+}
+
+<!-- Zusammenfassung der Fehlerlage über alle Schritte - der Nutzer sieht sofort, wo es klemmt. -->
+@if (Sitzung.Fehler.Count > 0 || Sitzung.Warnungen.Count > 0)
+{
+    <MudAlert Severity="@(Sitzung.Fehler.Count > 0 ? Severity.Error : Severity.Warning)"
+              Variant="Variant.Outlined" Class="mb-4" ShowCloseIcon="false">
+        <MudText Typo="Typo.body2">
+            @Sitzung.Fehler.Count Fehler und @Sitzung.Warnungen.Count Hinweise.
+            @if (Sitzung.Fehler.Count > 0)
+            {
+                <span>Fehlerhaft: @string.Join(", ", FehlerSchritteText())</span>
+            }
+        </MudText>
+    </MudAlert>
+}
+
+<MudPaper Elevation="0" Class="wizard-papier">
+    <MudStepper @ref="_stepper"
+                @bind-ActiveIndex="Sitzung.AktiverSchritt"
+                CenterLabels="true"
+                ShowResetButton="true"
+                ResetButtonIcon="@Icons.Material.Filled.RestartAlt"
+                CompletedStepColor="Color.Success"
+                CurrentStepColor="Color.Primary"
+                OnPreviewInteraction="VorschauInteraktionAsync"
+                aria-label="Formular in vier Schritten">
+
+        <ChildContent>
+            <MudStep Title="Allgemeine Angaben"
+                     SecondaryText="Bundesland, Finanzamt, Aktenzeichen"
+                     HasError="@HatFehler(WizardSchritt.AllgemeineAngaben)">
+                <GrundsteuerWizardSchritt1 />
+            </MudStep>
+
+            <MudStep Title="Grundstücksdaten"
+                     SecondaryText="Gemarkung, Flurstück, Flächen"
+                     HasError="@HatFehler(WizardSchritt.Grundstuecksdaten)">
+                <GrundsteuerWizardSchritt2 />
+            </MudStep>
+
+            <MudStep Title="Eigentümer"
+                     SecondaryText="Personen und Anteile"
+                     HasError="@HatFehler(WizardSchritt.Eigentuemer)">
+                <GrundsteuerWizardSchritt3 />
+            </MudStep>
+
+            <MudStep Title="Zusammenfassung"
+                     SecondaryText="Prüfen und übermitteln"
+                     HasError="@HatFehler(WizardSchritt.Zusammenfassung)">
+                <GrundsteuerWizardSchritt4 OnUebermitteln="UebermittelnAsync" />
+            </MudStep>
+        </ChildContent>
+
+        <CompletedContent>
+            <div class="abschluss">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Style="font-size:64px" />
+                <MudText Typo="Typo.h5" Class="mt-3">Alle Schritte sind vollständig</MudText>
+                <MudText Typo="Typo.body2" Class="text-secondary">
+                    Bitte im letzten Schritt die Angaben prüfen und die Erklärung übermitteln.
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4"
+                           StartIcon="@Icons.Material.Filled.Send" OnClick="ZumAbschluss"
+                           Disabled="@Sitzung.Beschaeftigt">
+                    Zur Zusammenfassung
+                </MudButton>
+            </div>
+        </CompletedContent>
+
+        <ActionContent>
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="w-100">
+                <MudText Typo="Typo.caption" Class="text-secondary">
+                    @Sitzung.Fehler.Count Fehler · @Sitzung.Warnungen.Count Hinweise
+                </MudText>
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Disabled="@(_stepper is null || Sitzung.AktiverSchritt == 0)"
+                               StartIcon="@Icons.Material.Filled.NavigateBefore" OnClick="ZurueckAsync">
+                        Zurück
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@Sitzung.Beschaeftigt"
+                               EndIcon="@Icons.Material.Filled.NavigateNext" OnClick="WeiterAsync">
+                        Weiter
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </ActionContent>
+    </MudStepper>
+</MudPaper>
+
+@if (Sitzung.Beschaeftigt)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-2" aria-label="Vorgang läuft" />
+}

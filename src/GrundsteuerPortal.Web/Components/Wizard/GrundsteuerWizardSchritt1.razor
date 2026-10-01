@@ -1,0 +1,143 @@
+@using GrundsteuerPortal.Web.Components.Shared
+@implements IDisposable
+
+@* Schritt 1: Allgemeine Angaben.
+   Hier entscheidet sich, welche Pflichtfelder und welche Rechenlogik gelten - deshalb steht
+   direkt unter der Bundeslandwahl das Modell des Landes mit seinen Sätzen. *@
+
+<MudText Typo="Typo.h5" GutterBottom="true">Allgemeine Angaben</MudText>
+<MudText Typo="Typo.body2" Class="text-secondary mb-4">
+    Bundesland und Finanzamt bestimmen, nach welchem Modell bewertet wird und welche Angaben
+    anschließend erforderlich sind. Bitte das <strong>Lage-Finanzamt des Grundstücks</strong> wählen,
+    nicht das Wohnsitz-Finanzamt.
+</MudText>
+
+<MudGrid Spacing="3">
+    <MudItem xs="12" md="6">
+        <MudSelect T="Bundesland" Value="Sitzung.Meldung.Bundesland" ValueChanged="BundeslandGeaendert"
+                   Label="Bundesland des Grundstücks" Required="true" RequiredError="Bitte ein Bundesland wählen."
+                   Variant="Variant.Outlined" aria-label="Bundesland des Grundstücks">
+            @foreach (var land in BundeslandKatalog.Alle.Keys)
+            {
+                <MudSelectItem T="Bundesland" Value="@land">@land.AnzeigeName()</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudSelect T="Erklaerungsart" Value="Sitzung.Meldung.Erklaerungsart"
+                   ValueChanged="ErklaerungsartGeaendert"
+                   Label="Erklärungsart" Variant="Variant.Outlined" aria-label="Erklärungsart">
+            @foreach (var art in Enum.GetValues<Erklaerungsart>())
+            {
+                <MudSelectItem T="Erklaerungsart" Value="@art">@art.AnzeigeName()</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+
+    <!-- Modellhinweis: erklärt dem Nutzer, warum welche Angaben verlangt werden. -->
+    <MudItem xs="12">
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-2">
+            <MudText Typo="Typo.subtitle2">@Sitzung.Meldung.BundeslandInfo.Modell.AnzeigeName()</MudText>
+            <MudText Typo="Typo.caption">@Sitzung.Meldung.BundeslandInfo.LaenderHinweis</MudText>
+            <MudText Typo="Typo.caption" Class="mt-1">
+                Datenart in ELSTER: @Sitzung.Meldung.BundeslandInfo.Datenart ·
+                Ordnungskriterium: @(Sitzung.Meldung.BundeslandInfo.Ordnungskriterium == Ordnungskriterium.Steuernummer ? "Steuernummer" : "Aktenzeichen")
+            </MudText>
+        </MudAlert>
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="4">
+        <MudNumericField T="int?" Value="Sitzung.Meldung.Hauptfeststellungszeitpunkt"
+                         ValueChanged="HauptfeststellungGeaendert"
+                         Label="Hauptfeststellungszeitpunkt" Required="true"
+                         Min="2022" Max="2030" Variant="Variant.Outlined"
+                         HelperText="Regulär 2022 (Stichtag 01.01.2022)."
+                         aria-label="Hauptfeststellungszeitpunkt" />
+    </MudItem>
+
+    <MudItem xs="12" sm="6" md="8">
+        <MudAutocomplete T="FinanzamtDto" Value="@_gewaehltesFinanzamt" ValueChanged="FinanzamtGeaendert"
+                         SearchFunc="FinanzamtSuche" ToStringFunc="@(f => f?.Anzeige)"
+                         Label="Lage-Finanzamt (Bundesfinanzamtsnummer und Name)" Required="true"
+                         Variant="Variant.Outlined" ResetValueOnEmptyText="true" CoerceText="false"
+                         Immediate="true" MaxItems="30" Dense="false"
+                         HelperText="@($"Zulässige Nummernkreise: {BufaHinweis()}")"
+                         aria-label="Lage-Finanzamt" />
+    </MudItem>
+
+    @if (Sitzung.Meldung.BundeslandInfo.Ordnungskriterium == Ordnungskriterium.Aktenzeichen)
+    {
+        <MudItem xs="12" md="6">
+            <MudTextField T="string" Value="Sitzung.Meldung.Aktenzeichen" ValueChanged="AktenzeichenGeaendert"
+                          Label="Aktenzeichen (Einheitswert-/Grundsteuerwertaktenzeichen)" Required="true"
+                          Variant="Variant.Outlined" Immediate="false"
+                          HelperText="@AktenzeichenHilfe()"
+                          Error="@_aktenzeichenFehler"
+                          ErrorText="@_aktenzeichenFehlertext"
+                          aria-label="Aktenzeichen" />
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudTextField T="string" Value="@_aktenzeichenFormatiert" ReadOnly="true"
+                          Label="Aktenzeichen in Bescheid-Schreibweise"
+                          Variant="Variant.Outlined"
+                          HelperText="Setzt sich aus Ihrer Eingabe zusammen – dient der Kontrolle."
+                          aria-label="Aktenzeichen in Bescheid-Schreibweise" />
+        </MudItem>
+    }
+    else
+    {
+        <MudItem xs="12" md="6">
+            <MudTextField T="string" Value="Sitzung.Meldung.Steuernummer" ValueChanged="SteuernummerGeaendert"
+                          Label="Steuernummer (13-stellig, ELSTER-Format)" Required="true"
+                          Variant="Variant.Outlined" Immediate="false" MaxLength="13"
+                          HelperText="FFFF0BBBUUUUP – 4 Stellen Finanzamt, 0, Bezirk, Unterscheidungsnummer, Prüfziffer."
+                          Error="@_steuernummerFehler"
+                          ErrorText="@_steuernummerFehlertext"
+                          aria-label="Steuernummer" />
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true">
+                <MudText Typo="Typo.caption">
+                    @Sitzung.Meldung.Bundesland.AnzeigeName() verwendet als Ordnungskriterium die Steuernummer.
+                    Sie steht auf dem letzten Bescheid zur Feststellung des Grundsteuerwerts.
+                </MudText>
+            </MudAlert>
+        </MudItem>
+    }
+
+    <MudItem xs="12">
+        <MudExpansionPanels Elevation="0" Class="hinweis-panel">
+            <MudExpansionPanel Text="Wo finde ich diese Angaben?"
+                               Icon="@Icons.Material.Outlined.HelpOutline">
+                <MudText Typo="Typo.body2">
+                    Alle Angaben stehen auf dem letzten Bescheid zur Feststellung des Grundsteuerwerts,
+                    auf dem Grundsteuermessbescheid oder in einem Informationsschreiben Ihres Finanzamts.
+                    Das Aktenzeichen in Hessen wird ohne führende Null dargestellt, in ELSTER aber mit –
+                    das Portal ergänzt sie automatisch.
+                </MudText>
+                <MudText Typo="Typo.caption" Class="text-secondary mt-2">
+                    Rechtsgrundlage: §§ 228 ff. BewG, § 139 AO, Abschnitt 8 der ELSTER-Schnittstellendokumentation.
+                </MudText>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    </MudItem>
+</MudGrid>
+
+@if (HinweiseFuerSchritt().Count > 0)
+{
+    <div class="schritt-hinweise">
+        @foreach (var hinweis in HinweiseFuerSchritt())
+        {
+            <MudAlert Severity="@Schwere(hinweis.Schwere)" Variant="Variant.Outlined" Dense="true" Class="my-1">
+                <MudText Typo="Typo.body2">@hinweis.Meldung</MudText>
+                @if (!string.IsNullOrWhiteSpace(hinweis.Vorschlag))
+                {
+                    <MudText Typo="Typo.caption">Vorschlag: @hinweis.Vorschlag</MudText>
+                }
+            </MudAlert>
+        }
+    </div>
+}

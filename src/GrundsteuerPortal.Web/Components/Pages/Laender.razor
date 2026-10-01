@@ -1,0 +1,73 @@
+@page "/laender"
+@using GrundsteuerPortal.Web.Components.Shared
+
+<PageTitle>Ländermodelle – GrundsteuerPortal</PageTitle>
+
+<MudText Typo="Typo.h1" Class="sr-only">Grundsteuermodelle der Bundesländer</MudText>
+
+<div class="seitenkopf">
+    <div>
+        <MudText Typo="Typo.h4">Grundsteuermodelle der Bundesländer</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary">
+            Seit 2025 gilt bundesweit das neue Recht. Sieben Länder nutzen die Länderöffnungsklausel
+            (Art. 72 Abs. 3 GG) und bewerten nach eigenen Regeln – dieses Portal berücksichtigt das
+            bei Pflichtfeldern und Rechenweg.
+        </MudText>
+    </div>
+</div>
+
+<MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+    <MudText Typo="Typo.body2">
+        Das <strong>Bundesmodell</strong> bewertet über den Grundsteuerwert (Ertrags- bzw. Sachwertverfahren),
+        multipliziert mit der Steuermesszahl (Wohnen 0,31 ‰, Gewerbe/Unbebautes 0,34 ‰).
+        Die reinen Flächenmodelle bewerten dagegen <strong>ohne Wert</strong> – nur über Flächen und Lage.
+        Ob die Grundsteuer für Sie steigt, hängt zusätzlich vom Hebesatz Ihrer Gemeinde ab.
+    </MudText>
+</MudAlert>
+
+@foreach (var modell in ModelleMitLaendern())
+{
+    <MudPaper Class="pa-4 mb-3" Elevation="0">
+        <div class="modell-kopf">
+            <MudIcon Icon="@ModellIcon(modell.Key)" Color="Color.Primary" />
+            <div>
+                <MudText Typo="Typo.h6">@modell.Key.AnzeigeName()</MudText>
+                <MudText Typo="Typo.caption" Class="text-secondary">
+                    @string.Join(", ", modell.Value.Select(l => l.AnzeigeName()))
+                </MudText>
+            </div>
+        </div>
+        <MudText Typo="Typo.body2" Class="mt-2">@ModellBeschreibung(modell.Key)</MudText>
+
+        <MudExpansionPanels Elevation="0" Class="mt-2">
+            @foreach (var land in modell.Value)
+            {
+                var info = BundeslandKatalog.Fuer(land);
+                <MudExpansionPanel Text="@($"{land.AnzeigeName()} – Datenart {info.Datenart}")" Dense="true">
+                    <MudSimpleTable Dense="true" Bordered="false" Class="pruef-tabelle">
+                        <tbody>
+                            <tr><td>Ordnungskriterium</td><td>@(info.Ordnungskriterium == Ordnungskriterium.Steuernummer ? "Steuernummer" : "Aktenzeichen")</td></tr>
+                            <tr><td>Steuermesszahl Wohnen</td><td>@MesszahlText(info.MesszahlWohnen, info)</td></tr>
+                            <tr><td>Steuermesszahl sonstige</td><td>@MesszahlText(info.MesszahlSonstige, info)</td></tr>
+                            <tr><td>Bodenrichtwert nötig</td><td>@(info.BrauchtBodenrichtwert ? "ja" : "nein")</td></tr>
+                            <tr><td>Gebäudeflächen nötig</td><td>@(info.BrauchtGebaeudeflaechen ? "ja" : "nein")</td></tr>
+                            <tr><td>Wohnlage bewertungsrelevant</td><td>@(info.BrauchtWohnlage ? "ja" : "nein")</td></tr>
+                            <tr><td>Zuständige Finanzämter</td><td>@info.FinanzamtNummern</td></tr>
+                            <tr><td>Landesnummer</td><td>@info.Landesnummer</td></tr>
+                        </tbody>
+                    </MudSimpleTable>
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Text" Dense="true" Class="mt-2">
+                        @info.LaenderHinweis
+                    </MudAlert>
+                </MudExpansionPanel>
+            }
+        </MudExpansionPanels>
+    </MudPaper>
+}
+
+<MudText Typo="Typo.caption" Class="text-secondary mt-4">
+    Quellen: Grundsteuer-Reformgesetz 2019, Länderöffnungsklausel Art. 72 Abs. 3 GG,
+    § 15 GrStG, § 4/§ 5/§ 6/§ 7 HGrStG, § 3/§ 4 HmbGrStG, ELSTER-Schnittstellendokumentation
+    zur Prüfung der Ordnungskriterien (Stand 02.09.2026).
+    Diese Übersicht dient der Orientierung und ist keine Steuerberatung.
+</MudText>

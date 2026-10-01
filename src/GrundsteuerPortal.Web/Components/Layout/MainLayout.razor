@@ -1,0 +1,75 @@
+@* Hauptlayout: AppBar, Navigations-Drawer, Inhaltsbereich, Snackbar-Host.
+   Die Umschaltung Hell/Dunkel wird im Menü der AppBar ausgelöst (siehe MainLayout.razor.cs). *@
+@inherits LayoutComponentBase
+@inject GrundsteuerTheme Theme
+@inject Microsoft.Extensions.Configuration.IConfiguration Konfiguration
+
+<MudThemeProvider Theme="@Theme" IsDarkMode="@_istDunkel" />
+<MudPopoverProvider />
+<MudDialogProvider MaxWidth="MaxWidth.Medium" CloseOnEscapeKey="true" />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0" Fixed="true" Class="app-bar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+                       Edge="Edge.Start" OnClick="DrawerToggle" aria-label="Navigation ein-/ausblenden" />
+
+        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Class="ml-1 mr-2" />
+        <MudText Typo="Typo.h6" Class="app-bar-titel">GrundsteuerPortal</MudText>
+
+        <MudSpacer />
+
+        <MudText Typo="Typo.caption" Class="d-none d-md-flex mr-3 app-bar-untertitel">
+            ELSTER-Grundsteuermeldung · @(MockAktiv ? "Mock-Betrieb" : "WebAPI verbunden")
+        </MudText>
+
+        <MudTooltip Text="@(_istDunkel ? "Helles Design" : "Dunkles Design")">
+            <MudIconButton Icon="@(_istDunkel ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)"
+                           Color="Color.Inherit" OnClick="ThemeUmschalten"
+                           aria-label="Farbschema umschalten" />
+        </MudTooltip>
+
+        <MudMenu Icon="@Icons.Material.Filled.HelpOutline" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight"
+                 TransformOrigin="Origin.TopRight" aria-label="Hilfe und Länderinformationen">
+            <MudMenuItem Href="/laender" Icon="@Icons.Material.Filled.Public">Ländermodelle &amp; Zuständigkeiten</MudMenuItem>
+            <MudMenuItem Href="https://www.elster.de" Target="_blank" Icon="@Icons.Material.Filled.OpenInNew">
+                ELSTER-Portal
+            </MudMenuItem>
+            <MudDivider Class="my-1" />
+            <MudMenuItem Disabled="true">
+                <MudText Typo="Typo.caption">Prüfregeln: ELSTER-Stand 09/2026</MudText>
+            </MudMenuItem>
+        </MudMenu>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOffen" ClipMode="DrawerClipMode.Always" Elevation="1" Breakpoint="Breakpoint.Md">
+        <MudNavMenu Class="pa-2">
+            <MudText Typo="Typo.overline" Class="px-4 pt-3 pb-1 nav-abschnitt">Erfassung</MudText>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Übersicht</MudNavLink>
+            <MudNavLink Href="/grundsteuer/neu" Icon="@Icons.Material.Filled.AddCircleOutline">Neue Meldung</MudNavLink>
+
+            <MudText Typo="Typo.overline" Class="px-4 pt-4 pb-1 nav-abschnitt">Nach Status</MudText>
+            <MudNavLink Href="/?status=0" Icon="@Icons.Material.Outlined.EditNote">Entwürfe</MudNavLink>
+            <MudNavLink Href="/?status=2" Icon="@Icons.Material.Outlined.Outbox">Übermittelt</MudNavLink>
+            <MudNavLink Href="/?status=4" Icon="@Icons.Material.Outlined.TaskAlt">Festgestellt</MudNavLink>
+
+            <MudText Typo="Typo.overline" Class="px-4 pt-4 pb-1 nav-abschnitt">Wissen</MudText>
+            <MudNavLink Href="/laender" Icon="@Icons.Material.Outlined.Map">Ländermodelle</MudNavLink>
+            <MudNavLink Href="/hilfe" Icon="@Icons.Material.Outlined.MenuBook">Hilfe &amp; Formate</MudNavLink>
+        </MudNavMenu>
+
+        <div class="drawer-fuss">
+            <MudDivider Class="mb-3" />
+            <MudText Typo="Typo.caption" Class="px-2">
+                Angaben ohne Gewähr. Verbindlich ist der Bescheid des Finanzamts.
+            </MudText>
+            <MudText Typo="Typo.caption" Class="px-2 mt-2">Version @_version</MudText>
+        </div>
+    </MudDrawer>
+
+    <MudMainContent Class="main-content">
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>

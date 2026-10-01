@@ -1,0 +1,37 @@
+## .NET Build-Artefakte
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Rider / VS / VS Code
+.idea/
+.vs/
+.vscode/
+*.DotSettings.user
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+## Test-Ergebnisse
+[Tt]est[Rr]esult*/
+coverage*.json
+coverage*.xml
+*.trx
+*.coverage
+
+## Lokale Konfiguration (keine Geheimnisse ins Repo)
+appsettings.Local.json
+appsettings.*.Local.json
+.env
+
+## OS
+.DS_Store
+Thumbs.db

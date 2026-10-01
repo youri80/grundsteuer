@@ -1,0 +1,212 @@
+@using GrundsteuerPortal.Core.Api
+@using GrundsteuerPortal.Web.Components.Shared
+@implements IDisposable
+
+@* Schritt 3: Eigentümer / Miteigentümer.
+   Dynamische Liste: jede Zeile ein MudExpansionPanel, damit lange Adressblöcke die Seite
+   nicht sprengen. Die Anteilssumme wird laufend geprüft - sie muss 100 % ergeben. *@
+
+<MudText Typo="Typo.h5" GutterBottom="true">Eigentümer und Miteigentümer</MudText>
+<MudText Typo="Typo.body2" Class="text-secondary mb-3">
+    Bitte alle Eigentümer mit ihrem Anteil erfassen. Die Summe der Anteile muss 100 % ergeben.
+    Für natürliche Personen wird die Identifikationsnummer benötigt (§ 139 AO).
+</MudText>
+
+<div class="anteils-leiste">
+    <MudProgressLinear Value="@((double)AnteilsProzent())" Color="@AnteilsFarbe()" Class="anteils-balken"
+                       aria-label="Summe der Eigentumsanteile" />
+    <MudText Typo="@Typo.body2" Class="@($"anteils-text text-{AnteilsFarbeName()}")">
+        Summe der Anteile: @AnteilsProzent().ToString("0.##") %
+        @if (AnteilsProzent() != 100m)
+        {
+            <span> – es fehlen noch @((100m - AnteilsProzent()).ToString("0.##")) %</span>
+        }
+    </MudText>
+</div>
+
+@if (Sitzung.Meldung.Eigentuemer.Count == 0)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="my-3">
+        Es ist noch kein Eigentümer erfasst. Ohne Eigentümer ist eine Übermittlung nicht möglich.
+    </MudAlert>
+}
+
+@foreach (var eintrag in Sitzung.Meldung.Eigentuemer.Select((e, i) => new { Person = e, Index = i }))
+{
+    var eigentuemer = eintrag.Person;
+    var i = eintrag.Index;
+    <MudExpansionPanel Text="@Titel(eigentuemer, i)"
+                       Icon="@Icons.Material.Outlined.Person"
+                       Dense="true" Class="eigentuemer-panel"
+                       @key="eigentuemer.Id">
+        <TitleContent>
+            <div class="eigentuemer-titel">
+                <MudIcon Icon="@ArtIcon(eigentuemer)" Size="Size.Small" />
+                <MudText Typo="Typo.body2">@Titel(eigentuemer, i)</MudText>
+                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">
+                    @((eigentuemer.Anteil * 100m).ToString("0.##")) %
+                </MudChip>
+            </div>
+        </TitleContent>
+        <ChildContent>
+            <MudGrid Spacing="2">
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="EigentuemerArt" Value="eigentuemer.Art"
+                               ValueChanged="wert => ArtGeaendert(eigentuemer, wert)"
+                               Label="Rechtsform" Variant="Variant.Outlined" Margin="Margin.Dense"
+                               aria-label="@($"Rechtsform Eigentümer {i + 1}")">
+                        @foreach (var art in Enum.GetValues<EigentuemerArt>())
+                        {
+                            <MudSelectItem T="EigentuemerArt" Value="@art">@art.AnzeigeName()</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                @if (eigentuemer.Art == EigentuemerArt.NatuerlichePerson)
+                {
+                    <MudItem xs="12" sm="6" md="2">
+                        <MudSelect T="Anrede" Value="eigentuemer.Anrede"
+                                   ValueChanged="wert => AnredeGeaendert(eigentuemer, wert)"
+                                   Label="Anrede" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                   aria-label="@($"Anrede Eigentümer {i + 1}")">
+                            @foreach (var anrede in Enum.GetValues<Anrede>())
+                            {
+                                <MudSelectItem T="Anrede" Value="@anrede">@anrede.AnzeigeName()</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudTextField T="string" Value="eigentuemer.Vorname"
+                                      ValueChanged="wert => FeldGeaendert(eigentuemer, e => e.Vorname = wert)"
+                                      Label="Vorname" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      aria-label="@($"Vorname Eigentümer {i + 1}")" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudTextField T="string" Value="eigentuemer.Name"
+                                      ValueChanged="wert => FeldGeaendert(eigentuemer, e => e.Name = wert ?? string.Empty)"
+                                      Label="Nachname" Required="true" RequiredError="Der Nachname ist erforderlich."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      aria-label="@($"Nachname Eigentümer {i + 1}")" />
+                    </MudItem>
+                }
+                else
+                {
+                    <MudItem xs="12" md="6">
+                        <MudTextField T="string" Value="eigentuemer.Name"
+                                      ValueChanged="wert => FeldGeaendert(eigentuemer, e => e.Name = wert ?? string.Empty)"
+                                      Label="Firma / Bezeichnung" Required="true"
+                                      RequiredError="Die Bezeichnung ist erforderlich."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      aria-label="@($"Bezeichnung Eigentümer {i + 1}")" />
+                    </MudItem>
+                }
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField T="string" Value="eigentuemer.IdNummer"
+                                  ValueChanged="wert => IdNrGeaendert(eigentuemer, wert)"
+                                  Label="Steuer-Identifikationsnummer"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="11" Immediate="false"
+                                  HelperText="11-stellig; steht auf dem Einkommensteuerbescheid."
+                                  Error="@IdNrFehler(eigentuemer)"
+                                  ErrorText="@IdNrFehlertext(eigentuemer)"
+                                  aria-label="@($"Identifikationsnummer Eigentümer {i + 1}")" />
+                </MudItem>
+
+                @if (eigentuemer.Art != EigentuemerArt.NatuerlichePerson)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudTextField T="string" Value="eigentuemer.Steuernummer"
+                                      ValueChanged="wert => FeldGeaendert(eigentuemer, e => e.Steuernummer = wert)"
+                                      Label="Steuernummer / Wirtschafts-IdNr."
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      HelperText="Bei juristischen Personen statt der IdNr."
+                                      aria-label="@($"Steuernummer Eigentümer {i + 1}")" />
+                    </MudItem>
+                }
+
+                <MudItem xs="12" sm="6" md="2">
+                    <MudNumericField T="decimal" Value="eigentuemer.Anteil"
+                                     ValueChanged="wert => AnteilGeaendert(eigentuemer, wert)"
+                                     Label="Anteil (1 = allein)" Variant="Variant.Outlined"
+                                     Margin="Margin.Dense" Min="0.0001m" Max="1m" Step="0.1m" Format="N4"
+                                     aria-label="@($"Anteil Eigentümer {i + 1}")" />
+                </MudItem>
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField T="string" Value="eigentuemer.Strasse"
+                                  ValueChanged="wert => FeldGeaendert(eigentuemer, e => e.Strasse = wert ?? string.Empty)"
+                                  Label="Straße" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  aria-label="@($"Straße Eigentümer {i + 1}")" />
+                </MudItem>
+                <MudItem xs="6" sm="3" md="1">
+                    <MudTextField T="string" Value="eigentuemer.Hausnummer"
+                                  ValueChanged="wert => FeldGeaendert(eigentuemer, e => e.Hausnummer = wert ?? string.Empty)"
+                                  Label="Nr." Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  aria-label="@($"Hausnummer Eigentümer {i + 1}")" />
+                </MudItem>
+                <MudItem xs="6" sm="3" md="2">
+                    <MudTextField T="string" Value="eigentuemer.Postleitzahl"
+                                  ValueChanged="wert => PlzGeaendert(eigentuemer, wert)"
+                                  Label="PLZ" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="5"
+                                  Immediate="false"
+                                  Error="@PlzFehler(eigentuemer)"
+                                  ErrorText="@PlzFehlertext(eigentuemer)"
+                                  aria-label="@($"Postleitzahl Eigentümer {i + 1}")" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField T="string" Value="eigentuemer.Ort"
+                                  ValueChanged="wert => FeldGeaendert(eigentuemer, e => e.Ort = wert ?? string.Empty)"
+                                  Label="Ort" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  aria-label="@($"Ort Eigentümer {i + 1}")" />
+                </MudItem>
+
+                @if (eigentuemer.Art == EigentuemerArt.NatuerlichePerson)
+                {
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudDatePicker Date="eigentuemer.Geburtsdatum"
+                                       DateChanged="wert => GeburtsdatumGeaendert(eigentuemer, wert)"
+                                       Label="Geburtsdatum" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                       Editable="true" aria-label="@($"Geburtsdatum Eigentümer {i + 1}")" />
+                    </MudItem>
+                }
+
+                <MudItem xs="12" sm="6" md="4">
+                    <MudSwitch T="bool" Value="eigentuemer.IstBevollmaechtigt"
+                               ValueChanged="wert => FeldGeaendert(eigentuemer, e => e.IstBevollmaechtigt = wert)"
+                               Color="Color.Primary" Label="Bevollmächtigt zur Übermittlung"
+                               aria-label="@($"Bevollmächtigt Eigentümer {i + 1}")" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex justify-end">
+                    <MudButton Variant="Variant.Text" Color="Color.Error"
+                               StartIcon="@Icons.Material.Outlined.DeleteOutline"
+                               Disabled="@(Sitzung.Meldung.Eigentuemer.Count <= 1)"
+                               OnClick="() => Entfernen(eigentuemer)">
+                        Eigentümer entfernen
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </ChildContent>
+    </MudExpansionPanel>
+}
+
+<div class="mt-3">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+               OnClick="Hinzufuegen">Weiteren Eigentümer hinzufügen</MudButton>
+</div>
+
+@if (HinweiseFuerSchritt().Count > 0)
+{
+    <div class="schritt-hinweise">
+        @foreach (var hinweis in HinweiseFuerSchritt())
+        {
+            <MudAlert Severity="@Schwere(hinweis.Schwere)" Variant="Variant.Outlined" Dense="true" Class="my-1">
+                <MudText Typo="Typo.body2">@hinweis.Meldung</MudText>
+                @if (!string.IsNullOrWhiteSpace(hinweis.Rechtsgrundlage))
+                {
+                    <MudText Typo="Typo.caption">Grundlage: @hinweis.Rechtsgrundlage</MudText>
+                }
+            </MudAlert>
+        }
+    </div>
+}
