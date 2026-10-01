@@ -2,7 +2,9 @@ using GrundsteuerPortal.Core.Api;
 using GrundsteuerPortal.Persistence;
 using GrundsteuerPortal.Persistence.Abstractions;
 using GrundsteuerPortal.Web.Components;
+using GrundsteuerPortal.Web.Health;
 using GrundsteuerPortal.Web.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 using MudBlazor;
 using MudBlazor.Services;
 
@@ -31,6 +33,13 @@ builder.Services.AddMudServices(config =>
 });
 
 builder.Services.AddSingleton<GrundsteuerTheme>();
+
+// ---------------------------------------------------------------------------------------------
+// DataProtection-Schlüssel persistieren (Container-Betrieb). Ohne das wird bei jedem neuen
+// Container ein frischer Schlüsselbund erzeugt und alle bestehenden Cookies (Blazor-Circuit,
+// Antiforgery) sind ungültig - der Fehler tritt erst beim nächsten Deployment auf.
+// ---------------------------------------------------------------------------------------------
+var dataProtectionPersistiert = DataProtectionSetup.Konfiguriere(builder);
 
 // ---------------------------------------------------------------------------------------------
 // Persistenz: EF Core + SQLite (lokale Ablage für Entwürfe, Stammdaten und Verlauf).
@@ -109,6 +118,20 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Proxy-Header auswerten: terminiert ein Reverse Proxy das TLS (im Container der Regelfall),
+// muss X-Forwarded-Proto ankommen - sonst hält die App jede Anfrage für HTTP.
+// Die Standardliste enthält nur Loopback; im Container läuft der Proxy in einem anderen Netz,
+// deshalb werden KnownIPNetworks/KnownProxies geleert. (KnownNetworks ist in .NET 10 veraltet
+// und löst eine Warnung aus - die aktuelle Eigenschaft ist KnownIPNetworks.)
+// ---------------------------------------------------------------------------------------------
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+    KnownIPNetworks = { },
+    KnownProxies = { }
+});
+
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
 // Statische Assets MÜSSEN vor den Razor-Components registriert werden - sonst fehlt
@@ -117,7 +140,25 @@ app.MapStaticAssets();
 
 app.UseAntiforgery();
 
+// Health-Endpunkte: /health/live (Prozess), /health/ready (DB), /health/assets (Blazor-Assets).
+app.MapHealthEndpoints();
+app.MapAssetCheck();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Selbstprüfung der Assets beim Start. Fehlen sie, ist die Oberfläche totes HTML, obwohl jede
+// Seite 200 liefert - das muss im Log als Fehler stehen, nicht still passieren.
+AssetSelfCheck.LogResult(app, app.Logger);
+
+// Die Entscheidungen, die im Container zählen, beim Start protokollieren. Sonst wirkt das
+// Fehlen (z. B. der HTTPS-Umleitung) wie ein Versehen und ist schwer zu finden.
+app.Logger.LogInformation(
+    "GrundsteuerPortal startet: Umgebung={Umgebung}, Datenbank={Datenbank}, "
+    + "DataProtection persistiert={DataProtection}, ELSTER-WebAPI konfiguriert={Api}.",
+    app.Environment.EnvironmentName,
+    datenbankPfad,
+    dataProtectionPersistiert,
+    apiKonfiguriert);
 
 app.Run();

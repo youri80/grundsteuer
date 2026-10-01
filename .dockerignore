@@ -1,0 +1,53 @@
+# =============================================================================================
+#  Build-Kontext-Ausschluss fuer das Dockerfile.
+#
+#  Wichtigster Eintrag: bin/ und obj/. Ohne diesen Ausschluss ueberschreibt das 'COPY . .' im
+#  Dockerfile das obj/ des Restore-Layers mit dem lokal erzeugten Stand, und der Build arbeitet
+#  mit einem fremden Asset-/Paketstand (NETSDK1004, wenn das lokale obj/ fehlt oder unvollstaendig
+#  ist). Der Build-Kontext schrumpft damit von mehreren hundert MB auf unter 1 MB.
+# =============================================================================================
+
+# ---- .NET-Build-Artefakte -------------------------------------------------------------------
+**/bin/
+**/obj/
+**/publish/
+**/out/
+
+# ---- Testprojekt: gehoert nicht ins Image ---------------------------------------------------
+tests/
+
+# ---- Lokale Datenbank (wird zur Laufzeit unter /data erzeugt) -------------------------------
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/data/
+
+# ---- Konfiguration mit Umgebungsbezug -------------------------------------------------------
+# Development-Konfiguration ausschliessen: zweite Verteidigungslinie dafuer, dass kein
+# Debug-/Bypass-Schalter versehentlich im Container greift (die erste ist, dass
+# ASPNETCORE_ENVIRONMENT nicht gesetzt wird und damit Production gilt).
+appsettings.Development.json
+appsettings.*.Local.json
+.env
+.env.*
+
+# ---- IDE und Versionskontrolle --------------------------------------------------------------
+.git/
+.gitignore
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+
+# ---- Container-Dateien selbst ---------------------------------------------------------------
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# ---- Dokumentation und Sonstiges ------------------------------------------------------------
+README.md
+**/*.md
+*.log
+.DS_Store
+Thumbs.db

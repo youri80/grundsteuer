@@ -22,4 +22,12 @@
     <ProjectReference Include="..\GrundsteuerPortal.Persistence\GrundsteuerPortal.Persistence.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Development-Konfiguration darf nie ins Publish/Image. Die .dockerignore schliesst sie
+         bereits aus dem Build-Kontext aus; diese Regel greift zusaetzlich bei jedem publish,
+         unabhaengig davon, wer das Dockerfile oder die .dockerignore spaeter aendert.
+         Nur das Publish ist betroffen - 'dotnet run' in der Entwicklung nutzt weiterhin die Datei. -->
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
 </Project>

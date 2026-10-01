@@ -1,0 +1,70 @@
+# =============================================================================================
+#  docker-compose für das GrundsteuerPortal.
+#
+#  Start:
+#     docker compose up -d --build
+#     -> Oberfläche auf http://localhost:8080
+#
+#  Diese Datei ist eine Vorlage für eine einzelne Installation. Für getrennte Organisationen
+#  genügt je ein eigener Service mit eigenem Volume und eigenen Werten unter 'environment'.
+# =============================================================================================
+services:
+  grundsteuer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Ziel-Architektur explizit setzen, wenn auf einem Mac (arm64) für einen x86-Server
+      # gebaut wird - sonst läuft das Image dort nicht:
+      # platforms:
+      #   - linux/amd64
+    image: grundsteuerportal:1.0.0
+    container_name: grundsteuerportal
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      # ---------------------------------------------------------------------------------------
+      #  Instanzspezifische Werte. Das Image bleibt für alle Installationen gleich; unterschieden
+      #  wird über diese Variablen und das Datenverzeichnis.
+      # ---------------------------------------------------------------------------------------
+      # Lokale SQLite-Datei (muss unter dem gemounteten Volume liegen, sonst beim Container-
+      # wechsel weg).
+      Datenbank__Pfad: /data/grundsteuer.db
+
+      # Salt zur Pseudonymisierung der Steueridentifikationsnummer.
+      # UNBEDINGT ändern. Achtung: ein Wechsel macht bereits gespeicherte Hashes unvergleichbar
+      # (die letzten drei Stellen zur Wiedererkennung bleiben erhalten).
+      Datenbank__IdNrSalt: "bitte-aendern-vor-produktivbetrieb"
+
+      # DataProtection-Schlüssel persistieren: ohne das werden bei jedem neuen Container alle
+      # Cookies (Blazor-Circuit, Antiforgery) ungültig.
+      Datenbank__DataProtectionPfad: /data/keys
+      Datenbank__DataProtectionApplicationName: GrundsteuerPortal
+
+      # Vorhandene ELSTER-WebAPI der Finanzverwaltung.
+      # IstKonfiguriert=false: Entwürfe werden lokal gespeichert, nur die ELSTER-Aktionen
+      # (Übermittlung, Statusabfrage, PDF) melden sich mit klarer Meldung.
+      Api__IstKonfiguriert: "false"
+      Api__BasisAdresse: "https://elster-api.intern:7443/"
+      Api__TimeoutSekunden: "60"
+
+      # ASPNETCORE_ENVIRONMENT wird bewusst NICHT gesetzt: Standard ist Production.
+      # Der Reverse Proxy terminiert TLS; die App hört nur auf HTTP 8080.
+      TZ: Europe/Berlin
+
+    volumes:
+      # OHNE dieses Volume sind alle erfassten Meldungen und der Statusverlauf beim nächsten
+      # Containerwechsel verloren.
+      - grundsteuer-daten:/data
+
+    # Der Container prüft sich selbst über HEALTHCHECK im Dockerfile (/health/live).
+    restart: unless-stopped
+
+    # Die App läuft als nicht-privilegierter Benutzer (UID 1654, aus dem aspnet-Image).
+    # read_only scheidet aus, weil die App DataProtection-Schlüssel schreibt - deshalb das Volume.
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  grundsteuer-daten:
