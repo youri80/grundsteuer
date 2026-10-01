@@ -1,5 +1,6 @@
 using GrundsteuerPortal.Core.Api;
 using GrundsteuerPortal.Core.Domain;
+using GrundsteuerPortal.Core.Validation;
 using GrundsteuerPortal.Persistence.Abstractions;
 using GrundsteuerPortal.Persistence.Security;
 
@@ -163,18 +164,45 @@ public sealed class GrundsteuerService : IGrundsteuerApiService
         var gecacht = await _repo.GetFinanzaemterAsync(land, ct);
         if (gecacht.Count > 0) return gecacht;
 
-        if (_elster is null) return new List<FinanzamtDto>();
-
-        // Beim ersten Zugriff auf ein Land den Cache aus der API füllen.
-        var ausApi = await _elster.GetFinanzaemterAsync(land, ct);
-        if (ausApi.Count > 0)
+        if (_elster is not null)
         {
-            await _repo.AktualisiereFinanzaemterAsync(ausApi, ct);
-            _logger.LogInformation("{Anzahl} Finanzämter für {Land} aus der WebAPI übernommen.",
-                ausApi.Count, land.AnzeigeName());
+            // Beim ersten Zugriff auf ein Land den Cache aus der API füllen.
+            var ausApi = await _elster.GetFinanzaemterAsync(land, ct);
+            if (ausApi.Count > 0)
+            {
+                // Nur zulässige Nummern übernehmen: eine Nummer, die die Vorprüfung ablehnt, darf
+                // gar nicht erst in die Auswahlliste - sonst wählt der Nutzer sie und scheitert
+                // erst im nächsten Schritt an der Validierung.
+                var zulaessig = ausApi
+                    .Where(f => Bundesfinanzamtsnummern.IstZulaessig(f.Bundesfinanzamtsnummer, land))
+                    .ToList();
+
+                if (zulaessig.Count > 0)
+                {
+                    await _repo.AktualisiereFinanzaemterAsync(zulaessig, ct);
+                    _logger.LogInformation("{Anzahl} Finanzämter für {Land} aus der WebAPI übernommen.",
+                        zulaessig.Count, land.AnzeigeName());
+                }
+                return zulaessig;
+            }
         }
 
-        return ausApi;
+        // Kein Cache und keine API (oder sie liefert nichts): die zulässigen Finanzämter aus dem
+        // hinterlegten Bereichskatalog ableiten. Ohne das bliebe die Auswahlliste in Schritt 1
+        // leer und der Wizard wäre nicht bedienbar, obwohl die Nummern bekannt sind.
+        //
+        // Das Ergebnis wird in den Cache geschrieben: sonst bliebe die Tabelle Finanzaemter dauerhaft
+        // leer und die Liste würde bei jedem Aufruf neu aufgebaut. Der Aufruf ist ein Upsert und
+        // damit beliebig oft wiederholbar.
+        var ausKatalog = FinanzamtKatalog.Erzeuge(land);
+        if (ausKatalog.Count > 0)
+        {
+            await _repo.AktualisiereFinanzaemterAsync(ausKatalog, ct);
+            _logger.LogInformation("{Anzahl} Finanzämter für {Land} aus dem Bereichskatalog übernommen.",
+                ausKatalog.Count, land.AnzeigeName());
+        }
+
+        return ausKatalog;
     }
 
     /// <summary>PLZ-Vorschlag aus dem lokalen Stammdaten-Cache.</summary>

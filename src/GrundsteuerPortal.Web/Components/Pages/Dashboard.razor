@@ -17,6 +17,11 @@
     <div class="seitenkopf-aktionen">
         <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Refresh"
                    OnClick="LadenAsync" Disabled="@State.Laedt">Aktualisieren</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Science"
+                   OnClick="TestdatenEinspielenAsync" Disabled="@State.Laedt"
+                   title="Legt acht vollständige Beispielmeldungen an, damit der Meldungsprozess durchgespielt werden kann">
+            Testdaten
+        </MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                    Href="/grundsteuer/neu">Neue Meldung erfassen</MudButton>
     </div>

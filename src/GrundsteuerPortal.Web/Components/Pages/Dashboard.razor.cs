@@ -21,6 +21,7 @@ public partial class Dashboard : ComponentBase, IDisposable
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime JsRuntime { get; set; } = default!;
+    [Inject] private ILogger<Dashboard> _logger { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -66,6 +67,35 @@ public partial class Dashboard : ComponentBase, IDisposable
     }
 
     private void FilterZuruecksetzen() => State.FilterZuruecksetzen();
+
+    /// <summary>
+    /// Legt die Beispielmeldungen an, damit der Meldungsprozess in der Oberfläche vollständig
+    /// durchgespielt werden kann. Bewusst mit Rückfrage: der Vorgang schreibt in die Datenbank.
+    ///
+    /// Ein bereits eingespielter Datensatz wird nicht erneut angelegt - erkennbar am Aktenzeichen
+    /// bzw. an der Steuernummer. Sonst entstünden bei jedem Klick Dubletten.
+    /// </summary>
+    private async Task TestdatenEinspielenAsync()
+    {
+        var vorhandene = await Api.GetMeldungenAsync();
+        var bereitsVorhanden = TestdatensatzDienst.IstBereitsEingespielt(vorhandene);
+
+        var bestaetigt = await DialogService.ShowMessageBoxAsync(
+            "Testdaten einspielen",
+            bereitsVorhanden
+                ? "Es sind bereits Testdaten vorhanden. Fehlende Datensätze werden ergänzt, "
+                  + "bestehende bleiben unverändert."
+                : "Es werden acht vollständige Beispielmeldungen angelegt (alle Berechnungsmodelle, "
+                  + "beide Ordnungskriterien). Die Nummern sind rechnerisch gültig, aber fiktiv – "
+                  + "für die Übermittlung an ein echtes Finanzamt sind sie nicht bestimmt.",
+            yesText: "Einspielen", cancelText: "Abbrechen");
+
+        if (bestaetigt != true) return;
+
+        var ergebnis = await TestdatensatzDienst.EinspielenAsync(Api, _logger);
+        Snackbar.Add(ergebnis, Severity.Success);
+        await State.LadenAsync();
+    }
 
     /// <summary>Räumt die Ladefehlermeldung weg, ohne die Seite neu aufzubauen.</summary>
     private void LadefehlerSchliessen()

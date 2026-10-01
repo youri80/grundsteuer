@@ -260,10 +260,25 @@ public static class MeldungsValidator
 
             if (e.Art == EigentuemerArt.NatuerlichePerson)
             {
-                var idNr = ElsterFormate.PruefeIdNr(e.IdNummer);
-                if (!idNr.IstGueltig)
-                    hinweise.Add(Fehler($"{praefix}.IdNummer",
-                        $"Eigentümer {index + 1}: {idNr.Meldung}", "§ 139 AO"));
+                if (IstIdNrPlatzhalter(e.IdNummer))
+                {
+                    // Aus Datenschutzgründen wird die IdNr nicht gespeichert - beim Laden steht nur
+                    // ein Platzhalter ("…471"). Er bedeutet "unverändert": der MeldungMapper erhält
+                    // beim Speichern den bestehenden Hash (siehe dort, 'istPlatzhalter'). Ihn als
+                    // Fehler zu behandeln würde JEDEN geladenen Entwurf als fehlerhaft anzeigen,
+                    // obwohl nichts fehlt - und das Absenden blockieren.
+                    hinweise.Add(Hinweis($"{praefix}.IdNummer",
+                        $"Eigentümer {index + 1}: Die hinterlegte Identifikationsnummer "
+                        + $"({e.IdNummer}) bleibt unverändert. Aus Sicherheitsgründen wird sie "
+                        + "nicht im Klartext gespeichert.", "§ 139 AO"));
+                }
+                else
+                {
+                    var idNr = ElsterFormate.PruefeIdNr(e.IdNummer);
+                    if (!idNr.IstGueltig)
+                        hinweise.Add(Fehler($"{praefix}.IdNummer",
+                            $"Eigentümer {index + 1}: {idNr.Meldung}", "§ 139 AO"));
+                }
             }
             else if (string.IsNullOrWhiteSpace(e.Steuernummer) && string.IsNullOrWhiteSpace(e.IdNummer))
             {
@@ -295,6 +310,10 @@ public static class MeldungsValidator
 
         return hinweise;
     }
+
+    /// <summary>Ist der Wert ein Platzhalter für eine gespeicherte, nicht im Klartext lesbare IdNr?</summary>
+    public static bool IstIdNrPlatzhalter(string? idNr) =>
+        !string.IsNullOrWhiteSpace(idNr) && idNr.TrimStart().StartsWith('…');
 
     // -----------------------------------------------------------------------------------------
     // Helfer
