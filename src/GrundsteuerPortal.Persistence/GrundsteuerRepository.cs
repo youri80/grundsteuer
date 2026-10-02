@@ -333,6 +333,154 @@ public sealed class GrundsteuerRepository : IGrundsteuerRepository
     }
 
     // -----------------------------------------------------------------------------------------
+    //  Person (Master)
+    // -----------------------------------------------------------------------------------------
+    public async Task<List<PersonUebersichtDto>> GetPersonenAsync(CancellationToken ct = default)
+    {
+        var personen = await _db.Personen
+            .AsNoTracking()
+            .OrderBy(p => p.Status)
+            .ThenBy(p => p.Name)
+            .ThenBy(p => p.Vorname)
+            .ToListAsync(ct);
+
+        return personen.Select(PersonEinheitMapper.ZuUebersicht).ToList();
+    }
+
+    public async Task<PersonDto?> GetPersonAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await _db.Personen.FirstOrDefaultAsync(p => p.Id == id, ct);
+        return entity is null ? null : PersonEinheitMapper.ZuDto(entity);
+    }
+
+    public async Task<ApiResponse> SpeicherePersonAsync(PersonDto dto, CancellationToken ct = default)
+    {
+        if (dto.Id != Guid.Empty && dto.RowVersion is { Length: > 0 })
+        {
+            var aktuell = await _db.Personen
+                .AsNoTracking()
+                .Where(p => p.Id == dto.Id)
+                .Select(p => p.RowVersion)
+                .FirstOrDefaultAsync(ct);
+
+            if (aktuell is not null && !aktuell.SequenceEqual(dto.RowVersion))
+                return ApiResponse.Fehler(
+                    "Die Person wurde zwischenzeitlich in einem anderen Fenster geändert. "
+                    + "Bitte neu laden.", "NEBENLAEUFIGKEIT");
+        }
+
+        var istNeu = dto.Id == Guid.Empty;
+        PersonEntity entity;
+
+        if (istNeu)
+        {
+            entity = new PersonEntity();
+            _db.Personen.Add(entity);
+        }
+        else
+        {
+            entity = await _db.Personen.FirstOrDefaultAsync(p => p.Id == dto.Id, ct)
+                ?? throw new InvalidOperationException($"Person {dto.Id} existiert nicht.");
+        }
+
+        PersonEinheitMapper.Uebernehme(dto, entity);
+        entity.ZuletztGeaendertAm = DateTime.UtcNow;
+        entity.RowVersion = Guid.NewGuid().ToByteArray();
+
+        await _db.SaveChangesAsync(ct);
+
+        var antwort = ApiResponse.Ok(istNeu ? "Person angelegt." : "Person gespeichert.", entity.Id);
+        antwort.RowVersion = entity.RowVersion;
+
+        _db.ChangeTracker.Clear();
+        return antwort;
+    }
+
+    // -----------------------------------------------------------------------------------------
+    //  Wirtschaftseinheit (Bestand)
+    // -----------------------------------------------------------------------------------------
+    public async Task<List<WirtschaftseinheitUebersichtDto>> GetWirtschaftseinheitenAsync(
+        CancellationToken ct = default)
+    {
+        var einheiten = await _db.Wirtschaftseinheiten
+            .AsNoTracking()
+            .Include(e => e.Lage)
+            .Include(e => e.Flurstuecke)
+            .Include(e => e.Eigentuemer).ThenInclude(z => z.Person)
+            .OrderByDescending(e => e.ZuletztGeaendertAm)
+            .ToListAsync(ct);
+
+        return einheiten.Select(PersonEinheitMapper.ZuUebersicht).ToList();
+    }
+
+    public async Task<WirtschaftseinheitDto?> GetWirtschaftseinheitAsync(Guid id, CancellationToken ct = default)
+    {
+        var entity = await VolleEinheit(id).AsNoTracking().FirstOrDefaultAsync(ct);
+        if (entity is null) return null;
+
+        var hatAktiveMeldung = await HatAktiveMeldungAsync(id, ct);
+        return PersonEinheitMapper.ZuDto(entity, hatAktiveMeldung);
+    }
+
+    private IQueryable<WirtschaftseinheitEntity> VolleEinheit(Guid id) =>
+        _db.Wirtschaftseinheiten
+            .Include(e => e.Lage)
+            .Include(e => e.Flurstuecke)
+            .Include(e => e.Eigentuemer).ThenInclude(z => z.Person)
+            .Where(e => e.Id == id);
+
+    public async Task<ApiResponse> SpeichereWirtschaftseinheitAsync(WirtschaftseinheitDto dto,
+        CancellationToken ct = default)
+    {
+        if (dto.Id != Guid.Empty && dto.RowVersion is { Length: > 0 })
+        {
+            var aktuell = await _db.Wirtschaftseinheiten
+                .AsNoTracking()
+                .Where(e => e.Id == dto.Id)
+                .Select(e => e.RowVersion)
+                .FirstOrDefaultAsync(ct);
+
+            if (aktuell is not null && !aktuell.SequenceEqual(dto.RowVersion))
+                return ApiResponse.Fehler(
+                    "Die Wirtschaftseinheit wurde zwischenzeitlich in einem anderen Fenster geändert. "
+                    + "Bitte neu laden.", "NEBENLAEUFIGKEIT");
+        }
+
+        var istNeu = dto.Id == Guid.Empty;
+        WirtschaftseinheitEntity entity;
+
+        if (istNeu)
+        {
+            entity = new WirtschaftseinheitEntity { Lage = new LageAdresse() };
+            _db.Wirtschaftseinheiten.Add(entity);
+        }
+        else
+        {
+            entity = await VolleEinheit(dto.Id).FirstOrDefaultAsync(ct)
+                ?? throw new InvalidOperationException($"Wirtschaftseinheit {dto.Id} existiert nicht.");
+        }
+
+        PersonEinheitMapper.Uebernehme(dto, entity);
+        entity.ZuletztGeaendertAm = DateTime.UtcNow;
+        entity.RowVersion = Guid.NewGuid().ToByteArray();
+
+        await _db.SaveChangesAsync(ct);
+
+        var antwort = ApiResponse.Ok(istNeu ? "Wirtschaftseinheit angelegt." : "Wirtschaftseinheit gespeichert.",
+            entity.Id);
+        antwort.RowVersion = entity.RowVersion;
+
+        _db.ChangeTracker.Clear();
+        return antwort;
+    }
+
+    public Task<bool> HatAktiveMeldungAsync(Guid wirtschaftseinheitId, CancellationToken ct = default) =>
+        _db.Meldungen.AnyAsync(m => m.WirtschaftseinheitId == wirtschaftseinheitId
+            && (m.Status == MeldungStatus.Entwurf || m.Status == MeldungStatus.Validierungsfehler
+                || m.Status == MeldungStatus.Uebermittelt || m.Status == MeldungStatus.InPruefung
+                || m.Status == MeldungStatus.Fehlgeschlagen), ct);
+
+    // -----------------------------------------------------------------------------------------
     //  Initialisierung
     // -----------------------------------------------------------------------------------------
     public async Task InitialisierenAsync(CancellationToken ct = default)
@@ -346,11 +494,168 @@ public sealed class GrundsteuerRepository : IGrundsteuerRepository
             _logger.LogInformation("SQLite-Datenbank neu angelegt und Grunddaten eingespielt.");
         }
 
+        // Wirtschaftseinheit-zentrischer Umbau: fehlende Tabellen/Spalten gezielt nachziehen, da
+        // EnsureCreated auf einer BESTEHENDEN Datenbank nichts anlegt. Danach die Bestandsdaten
+        // aufteilen (jede Meldung -> Wirtschaftseinheit + Personen).
+        await SchemaNachzug.ZieheNachAsync(_db, ct);
+        await MigriereBestandsdatenAsync(ct);
+
         if (await _db.PlzZuordnungen.AnyAsync(ct)) return;
 
         _logger.LogInformation("PLZ-Grunddaten werden eingespielt.");
         _db.PlzZuordnungen.AddRange(PlzGrunddaten());
         await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Teilt bestehende Meldungen rückwirkend auf: jede Meldung ohne Herkunfts-Einheit bekommt eine
+    /// Wirtschaftseinheit (Status Aktiv) aus ihren Grundstücks-/Eigentümerfeldern. Die Eigentümer
+    /// werden zu Person-Mastern (dedupliziert über IdNr-Hash) und als EinheitEigentuemer zugeordnet.
+    /// Die Meldung behält ihre Vorgangsfelder und bekommt die FK auf Einheit + meldende Stelle
+    /// (= erster Eigentümer). Idempotent: Meldungen mit gesetzter WirtschaftseinheitId werden
+    /// übersprungen.
+    /// </summary>
+    private async Task MigriereBestandsdatenAsync(CancellationToken ct)
+    {
+        var meldungen = await _db.Meldungen
+            .Include(m => m.Lage)
+            .Include(m => m.Flurstuecke)
+            .Include(m => m.Eigentuemer)
+            .Where(m => m.WirtschaftseinheitId == null)
+            .ToListAsync(ct);
+
+        if (meldungen.Count == 0) return;
+
+        _logger.LogInformation("Bestandsdaten werden aufgeteilt: {Anzahl} Meldung(en) -> Wirtschaftseinheiten + Personen.",
+            meldungen.Count);
+
+        foreach (var meldung in meldungen)
+        {
+            // Person-Master je Eigentümer, dedupliziert über IdNr-Hash.
+            var eigentuemerZuordnungen = new List<EinheitEigentuemerEntity>();
+            PersonEntity? meldendePerson = null;
+
+            var reihenfolge = 0;
+            foreach (var eigentuemer in meldung.Eigentuemer.OrderBy(x => x.Reihenfolge))
+            {
+                var person = await FindeOderLegePersonAnAsync(eigentuemer, ct);
+                if (meldendePerson is null) meldendePerson = person;
+
+                eigentuemerZuordnungen.Add(new EinheitEigentuemerEntity
+                {
+                    PersonId = person.Id,
+                    Anteil = eigentuemer.Anteil,
+                    Reihenfolge = reihenfolge++
+                });
+            }
+
+            var einheit = new WirtschaftseinheitEntity
+            {
+                Status = EinheitStatus.Aktiv,
+                Bundesland = meldung.Bundesland,
+                Modell = meldung.Modell,
+                Bundesfinanzamtsnummer = meldung.Bundesfinanzamtsnummer,
+                FinanzamtName = meldung.FinanzamtName,
+                Gemarkung = meldung.Gemarkung,
+                Gemarkungsnummer = meldung.Gemarkungsnummer,
+                Flur = meldung.Flur,
+                FlurstueckZaehler = meldung.FlurstueckZaehler,
+                FlurstueckNenner = meldung.FlurstueckNenner,
+                Grundbuchblatt = meldung.Grundbuchblatt,
+                Grundstuecksart = meldung.Grundstuecksart,
+                Grundstuecksflaeche = meldung.Grundstuecksflaeche,
+                Wohnflaeche = meldung.Wohnflaeche,
+                Nutzflaeche = meldung.Nutzflaeche,
+                Baujahr = meldung.Baujahr,
+                Bodenrichtwert = meldung.Bodenrichtwert,
+                DurchschnittlicherBodenrichtwert = meldung.DurchschnittlicherBodenrichtwert,
+                Wohnlage = meldung.Wohnlage,
+                IstDenkmalgeschuetzt = meldung.IstDenkmalgeschuetzt,
+                IstSozialerWohnungsbau = meldung.IstSozialerWohnungsbau,
+                Lage = new LageAdresse
+                {
+                    Strasse = meldung.Lage.Strasse,
+                    Hausnummer = meldung.Lage.Hausnummer,
+                    HausnummerZusatz = meldung.Lage.HausnummerZusatz,
+                    Postleitzahl = meldung.Lage.Postleitzahl,
+                    Ort = meldung.Lage.Ort,
+                    Ortsteil = meldung.Lage.Ortsteil,
+                    Land = meldung.Lage.Land
+                }
+            };
+
+            // Flurstücke der Einheit aus den Meldungs-Flurstücken.
+            var fIndex = 0;
+            foreach (var f in meldung.Flurstuecke.OrderBy(x => x.Reihenfolge))
+            {
+                einheit.Flurstuecke.Add(new EinheitFlurstueckEntity
+                {
+                    Reihenfolge = fIndex++,
+                    Gemarkung = f.Gemarkung,
+                    Gemarkungsnummer = f.Gemarkungsnummer,
+                    Flur = f.Flur,
+                    Zaehler = f.Zaehler,
+                    Nenner = f.Nenner,
+                    Flaeche = f.Flaeche,
+                    Anteil = f.Anteil
+                });
+            }
+
+            einheit.Eigentuemer.AddRange(eigentuemerZuordnungen);
+            _db.Wirtschaftseinheiten.Add(einheit);
+
+            // Meldung bekommt die Herkunfts-FK und die meldende Stelle.
+            meldung.WirtschaftseinheitId = einheit.Id;
+            meldung.MeldendePersonId = meldendePerson?.Id;
+            meldung.MeldendePersonName = meldendePerson?.AnzeigeName;
+        }
+
+        await _db.SaveChangesAsync(ct);
+        _db.ChangeTracker.Clear();
+    }
+
+    /// <summary>
+    /// Findet eine bestehende Person anhand des IdNr-Hash oder legt eine neue an. Bei juristischen
+    /// Personen ohne IdNr dient die Steuernummer als Wiedererkennungsmerkmal.
+    /// </summary>
+    private async Task<PersonEntity> FindeOderLegePersonAnAsync(EigentuemerEntity eigentuemer,
+        CancellationToken ct)
+    {
+        PersonEntity? vorhanden = null;
+
+        if (!string.IsNullOrWhiteSpace(eigentuemer.IdNrHash))
+        {
+            vorhanden = await _db.Personen
+                .FirstOrDefaultAsync(p => p.IdNrHash == eigentuemer.IdNrHash, ct);
+        }
+        else if (!string.IsNullOrWhiteSpace(eigentuemer.Steuernummer))
+        {
+            vorhanden = await _db.Personen
+                .FirstOrDefaultAsync(p => p.Steuernummer == eigentuemer.Steuernummer, ct);
+        }
+
+        if (vorhanden is not null) return vorhanden;
+
+        var person = new PersonEntity
+        {
+            Status = PersonStatus.Aktiv,
+            Art = eigentuemer.Art,
+            Anrede = eigentuemer.Anrede,
+            Name = eigentuemer.Name,
+            Vorname = eigentuemer.Vorname,
+            IdNrHash = eigentuemer.IdNrHash,
+            IdNrLetzteDrei = eigentuemer.IdNrLetzteDrei,
+            Steuernummer = eigentuemer.Steuernummer,
+            Strasse = eigentuemer.Strasse,
+            Hausnummer = eigentuemer.Hausnummer,
+            Postleitzahl = eigentuemer.Postleitzahl,
+            Ort = eigentuemer.Ort,
+            Land = eigentuemer.Land,
+            Geburtsdatum = eigentuemer.Geburtsdatum
+        };
+
+        _db.Personen.Add(person);
+        return person;
     }
 
     /// <summary>

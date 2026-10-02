@@ -1,0 +1,165 @@
+@page "/personen/neu"
+@page "/personen/{Id:guid}"
+@using GrundsteuerPortal.Core.Api
+@using GrundsteuerPortal.Core.Domain
+@inject GrundsteuerPortal.Web.Services.BestandsService Bestand
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_istNeu ? "Neue Person" : "Person bearbeiten") – GrundsteuerPortal</PageTitle>
+
+<div class="seitenkopf">
+    <div>
+        <MudText Typo="Typo.h4">@(_istNeu ? "Neue Person" : "Person bearbeiten")</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary">
+            Die Person ist wiederverwendbar – als Eigentümer mehrerer Wirtschaftseinheiten und als
+            meldende Stelle.
+        </MudText>
+    </div>
+    <div class="seitenkopf-aktionen">
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="Zurueck">Zurück</MudButton>
+    </div>
+</div>
+
+@if (_ladefehler is not null)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@_ladefehler</MudAlert>
+}
+
+<MudPaper Elevation="0" Class="pa-4">
+    <MudForm>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6" md="4">
+                <MudSelect T="EigentuemerArt" @bind-Value="_person.Art" Label="Art" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var art in Enum.GetValues<EigentuemerArt>())
+                    {
+                        <MudSelectItem T="EigentuemerArt" Value="@art">@art.AnzeigeName()</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+
+            @if (_person.Art == EigentuemerArt.NatuerlichePerson)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <MudSelect T="Anrede" @bind-Value="_person.Anrede" Label="Anrede" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var anrede in Enum.GetValues<Anrede>())
+                        {
+                            <MudSelectItem T="Anrede" Value="@anrede">@anrede.AnzeigeName()</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudTextField @bind-Value="_person.Vorname" Label="Vorname" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField @bind-Value="_person.Name" Label="Nachname" Required="true"
+                                  RequiredError="Der Nachname ist erforderlich." Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+            }
+            else
+            {
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_person.Name" Label="Firma / Bezeichnung" Required="true"
+                                  RequiredError="Die Bezeichnung ist erforderlich." Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+            }
+
+            @if (_person.Art == EigentuemerArt.NatuerlichePerson)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField @bind-Value="_person.IdNummer" Label="Steuer-Identifikationsnummer"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="11"
+                                  HelperText="11-stellig; wird nicht im Klartext gespeichert." />
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudDatePicker @bind-Date="_person.Geburtsdatum" Label="Geburtsdatum"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Editable="true" />
+                </MudItem>
+            }
+            else
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudTextField @bind-Value="_person.Steuernummer" Label="Steuernummer / Wirtschafts-IdNr."
+                                  Variant="Variant.Outlined" Margin="Margin.Dense"
+                                  HelperText="Bei juristischen Personen statt der IdNr." />
+                </MudItem>
+            }
+
+            <MudItem xs="12" sm="8" md="5">
+                <MudTextField @bind-Value="_person.Strasse" Label="Straße" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="4" md="2">
+                <MudTextField @bind-Value="_person.Hausnummer" Label="Nr." Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="6" sm="4" md="2">
+                <MudTextField @bind-Value="_person.Postleitzahl" Label="PLZ" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="5" />
+            </MudItem>
+            <MudItem xs="6" sm="8" md="3">
+                <MudTextField @bind-Value="_person.Ort" Label="Ort" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudSelect T="PersonStatus" @bind-Value="_person.Status" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var status in Enum.GetValues<PersonStatus>())
+                    {
+                        <MudSelectItem T="PersonStatus" Value="@status">@status.AnzeigeName()</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <div class="d-flex gap-2 mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="SpeichernAsync">Speichern</MudButton>
+            <MudButton Variant="Variant.Text" OnClick="Abbrechen">Abbrechen</MudButton>
+        </div>
+    </MudForm>
+</MudPaper>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+
+    private PersonDto _person = new();
+    private bool _istNeu = true;
+    private string? _ladefehler;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _istNeu = Id is null;
+
+        if (Id is not null && (_person.Id == Guid.Empty || _person.Id != Id.Value))
+        {
+            var geladen = await Bestand.GetPersonAsync(Id.Value);
+            if (geladen is null)
+                _ladefehler = "Die Person wurde nicht gefunden.";
+            else
+                _person = geladen;
+        }
+    }
+
+    private void Zurueck() => Navigation.NavigateTo("/personen");
+
+    private void Abbrechen() => Navigation.NavigateTo("/personen");
+
+    private async Task SpeichernAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_person.Name))
+        {
+            Snackbar.Add("Bitte einen Namen bzw. eine Bezeichnung angeben.", Severity.Warning);
+            return;
+        }
+
+        var antwort = await Bestand.SpeicherePersonAsync(_person);
+        if (antwort.Erfolg && antwort.Id.HasValue)
+        {
+            Snackbar.Add("Person gespeichert.", Severity.Success);
+            if (_istNeu)
+                Navigation.NavigateTo($"/personen/{antwort.Id.Value}", replace: true);
+        }
+        else
+        {
+            Snackbar.Add(antwort.Meldung ?? "Die Person konnte nicht gespeichert werden.", Severity.Error);
+        }
+    }
+}

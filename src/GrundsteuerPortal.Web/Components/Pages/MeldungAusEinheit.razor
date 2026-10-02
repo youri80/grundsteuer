@@ -1,0 +1,128 @@
+@page "/meldung/aus/{EinheitId:guid}"
+@using GrundsteuerPortal.Core.Api
+@using GrundsteuerPortal.Core.Domain
+@inject GrundsteuerPortal.Web.Services.BestandsService Bestand
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Meldung aus Wirtschaftseinheit – GrundsteuerPortal</PageTitle>
+
+<div class="seitenkopf">
+    <div>
+        <MudText Typo="Typo.h4">Meldung erstellen</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary">
+            Aus der Wirtschaftseinheit wird eine Meldung als Stand-jetzt-Snapshot erzeugt.
+        </MudText>
+    </div>
+    <div class="seitenkopf-aktionen">
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="Zurueck">Zurück</MudButton>
+    </div>
+</div>
+
+@if (_ladefehler is not null)
+{
+    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@_ladefehler</MudAlert>
+}
+else if (_einheit is not null)
+{
+    <MudPaper Elevation="0" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-2">Wirtschaftseinheit</MudText>
+        <MudGrid Spacing="1">
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.body2">@_einheit.AnzeigeName</MudText>
+                <MudText Typo="Typo.caption" Class="text-secondary">
+                    @_einheit.Lage.Einzeilig · @_einheit.Bundesland.AnzeigeName()
+                </MudText>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudText Typo="Typo.caption" Class="text-secondary">
+                    @_einheit.Eigentuemer.Count Eigentümer · @_einheit.Flurstuecke.Count Flurstück(e)
+                </MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Elevation="0" Class="pa-4">
+        <MudText Typo="Typo.h6" Class="mb-2">Meldende Stelle</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary mb-3">
+            Wer sendet die Erklärung? Vorgeschlagen wird der erste Eigentümer – es kann aber auch eine
+            andere Person (z. B. eine Steuerberatungs-GmbH) sein.
+        </MudText>
+
+        <MudSelect T="Guid" @bind-Value="_meldendePersonId" Label="Meldende Stelle"
+                   ToStringFunc="id => PersonName(id)" Variant="Variant.Outlined"
+                   Required="true" RequiredError="Bitte eine meldende Stelle wählen.">
+            @foreach (var person in _personen)
+            {
+                <MudSelectItem T="Guid" Value="@person.Id">@person.AnzeigeName</MudSelectItem>
+            }
+        </MudSelect>
+
+        <div class="d-flex gap-2 mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PostAdd"
+                       OnClick="ErstellenAsync" Disabled="@(_meldendePersonId == Guid.Empty || _erstellt)">
+                Meldung erstellen
+            </MudButton>
+            <MudButton Variant="Variant.Text" OnClick="Zurueck">Abbrechen</MudButton>
+        </div>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid EinheitId { get; set; }
+
+    private WirtschaftseinheitDto? _einheit;
+    private List<PersonDto> _personen = new();
+    private Guid _meldendePersonId;
+    private string? _ladefehler;
+    private bool _erstellt;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_einheit is null || _einheit.Id != EinheitId)
+        {
+            _einheit = await Bestand.GetWirtschaftseinheitAsync(EinheitId);
+            if (_einheit is null)
+            {
+                _ladefehler = "Die Wirtschaftseinheit wurde nicht gefunden.";
+                return;
+            }
+
+            var personen = await Bestand.GetPersonenAsync();
+            _personen = personen
+                .Where(p => p.Status == PersonStatus.Aktiv)
+                .Select(p => new PersonDto { Id = p.Id, Name = p.Name, Vorname = p.Vorname, Art = p.Art })
+                .ToList();
+
+            // Vorbelegung: erster aktiver Eigentümer, falls vorhanden.
+            var erster = _einheit.Eigentuemer
+                .Select(z => z.PersonId)
+                .FirstOrDefault(id => _personen.Any(p => p.Id == id));
+            _meldendePersonId = erster;
+        }
+    }
+
+    private void Zurueck() => Navigation.NavigateTo("/wirtschaftseinheiten");
+
+    private string PersonName(Guid id) => _personen.FirstOrDefault(p => p.Id == id)?.AnzeigeName ?? string.Empty;
+
+    private async Task ErstellenAsync()
+    {
+        if (_meldendePersonId == Guid.Empty || _einheit is null) return;
+
+        _erstellt = true;
+        var antwort = await Bestand.ErstelleMeldungAsync(_einheit.Id, _meldendePersonId);
+        _erstellt = false;
+
+        if (antwort.Erfolg && antwort.Id.HasValue)
+        {
+            Snackbar.Add("Meldung als Entwurf erstellt.", Severity.Success);
+            Navigation.NavigateTo($"/grundsteuer/{antwort.Id.Value}", replace: true);
+        }
+        else
+        {
+            Snackbar.Add(antwort.Meldung ?? "Die Meldung konnte nicht erstellt werden.", Severity.Error);
+        }
+    }
+}

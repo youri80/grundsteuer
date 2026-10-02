@@ -45,6 +45,36 @@ public interface IGrundsteuerRepository
 
     /// <summary>Datenbank anlegen und Grunddaten einspielen (idempotent).</summary>
     Task InitialisierenAsync(CancellationToken ct = default);
+
+    // -----------------------------------------------------------------------------------------
+    //  Wirtschaftseinheit-zentrisches Modell: Person (Master) + Wirtschaftseinheit (Bestand)
+    // -----------------------------------------------------------------------------------------
+
+    /// <summary>Übersicht aller Personen, aktive zuerst.</summary>
+    Task<List<Core.Api.PersonUebersichtDto>> GetPersonenAsync(CancellationToken ct = default);
+
+    /// <summary>Eine Person vollständig laden.</summary>
+    Task<Core.Api.PersonDto?> GetPersonAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Person anlegen oder aktualisieren. Liefert die Id.</summary>
+    Task<Core.Api.ApiResponse> SpeicherePersonAsync(Core.Api.PersonDto dto, CancellationToken ct = default);
+
+    /// <summary>Übersicht aller Wirtschaftseinheiten, zuletzt geändert zuerst.</summary>
+    Task<List<Core.Api.WirtschaftseinheitUebersichtDto>> GetWirtschaftseinheitenAsync(
+        CancellationToken ct = default);
+
+    /// <summary>Eine Wirtschaftseinheit vollständig laden (inkl. Eigentümer-Personen).</summary>
+    Task<Core.Api.WirtschaftseinheitDto?> GetWirtschaftseinheitAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Wirtschaftseinheit anlegen oder aktualisieren. Liefert die Id.</summary>
+    Task<Core.Api.ApiResponse> SpeichereWirtschaftseinheitAsync(Core.Api.WirtschaftseinheitDto dto,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Gibt es zu einer Einheit aktuell eine aktive (noch nicht abgeschlossene) Meldung?
+    /// Aktiv = Entwurf, Validierungsfehler, Übermittelt, In Prüfung, Fehlgeschlagen.
+    /// </summary>
+    Task<bool> HatAktiveMeldungAsync(Guid wirtschaftseinheitId, CancellationToken ct = default);
 }
 
 /// <summary>Ein zu protokollierender ELSTER-Übermittlungsversuch.</summary>

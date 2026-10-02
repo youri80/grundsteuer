@@ -1,0 +1,93 @@
+@page "/wirtschaftseinheiten"
+@using GrundsteuerPortal.Core.Api
+@using GrundsteuerPortal.Core.Domain
+@inject GrundsteuerPortal.Web.Services.BestandsService Bestand
+@inject NavigationManager Navigation
+
+<PageTitle>Wirtschaftseinheiten – GrundsteuerPortal</PageTitle>
+
+<div class="seitenkopf">
+    <div>
+        <MudText Typo="Typo.h4">Wirtschaftseinheiten</MudText>
+        <MudText Typo="Typo.body2" Class="text-secondary">
+            Der stabile Grundstücks-Bestand. Aus einer Wirtschaftseinheit wird bei Bedarf eine
+            Meldung an das Finanzamt erzeugt.
+        </MudText>
+    </div>
+    <div class="seitenkopf-aktionen">
+        <MudButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Filled.Refresh"
+                   OnClick="LadenAsync">Aktualisieren</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   Href="/wirtschaftseinheiten/neu">Neue Wirtschaftseinheit</MudButton>
+    </div>
+</div>
+
+@if (_laedt)
+{
+    <MudProgressLinear Indeterminate="true" Class="mt-2" />
+}
+
+<MudDataGrid T="WirtschaftseinheitUebersichtDto" Items="_einheiten" Hover="true" Striped="true"
+             Dense="false" Breakpoint="Breakpoint.Md" aria-label="Wirtschaftseinheiten">
+    <Columns>
+        <PropertyColumn Property="e => e.AnzeigeName" Title="Einheit" Sortable="true">
+            <CellTemplate>
+                <MudText Typo="Typo.body2">@context.Item.AnzeigeName</MudText>
+                <MudText Typo="Typo.caption" Class="text-secondary">
+                    @context.Item.Strasse @context.Item.Hausnummer, @context.Item.Ort
+                </MudText>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="e => e.Bundesland" Title="Bundesland" Sortable="true">
+            <CellTemplate>
+                <MudText Typo="Typo.body2">@context.Item.Bundesland.AnzeigeName()</MudText>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="e => e.HauptEigentuemer" Title="Eigentümer" Sortable="true">
+            <CellTemplate>
+                <MudText Typo="Typo.body2">@context.Item.HauptEigentuemer</MudText>
+                @if (context.Item.AnzahlEigentuemer > 1)
+                {
+                    <MudText Typo="Typo.caption" Class="text-secondary">
+                        +@(context.Item.AnzahlEigentuemer - 1) weitere
+                    </MudText>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="e => e.Status" Title="Status" Sortable="true">
+            <CellTemplate>
+                <MudText Typo="Typo.body2" Color="@(context.Item.Status == EinheitStatus.Aktiv ? Color.Success : Color.Default)">
+                    @context.Item.Status.AnzeigeName()
+                </MudText>
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn>
+            <CellTemplate>
+                <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Edit"
+                           Href="@($"/wirtschaftseinheiten/{context.Item.Id}")">Bearbeiten</MudButton>
+                <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.PostAdd"
+                           Href="@($"/meldung/aus/{context.Item.Id}")">Meldung erstellen</MudButton>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+</MudDataGrid>
+
+@code {
+    private List<WirtschaftseinheitUebersichtDto> _einheiten = new();
+    private bool _laedt;
+
+    protected override async Task OnInitializedAsync() => await LadenAsync();
+
+    private async Task LadenAsync()
+    {
+        _laedt = true;
+        try
+        {
+            _einheiten = await Bestand.GetWirtschaftseinheitenAsync();
+        }
+        finally
+        {
+            _laedt = false;
+        }
+    }
+}
