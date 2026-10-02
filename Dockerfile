@@ -94,8 +94,11 @@ ENV Datenbank__DataProtectionPfad=/data/keys \
 # Container laeuft unter einer beliebigen, vorher unbekannten UID - aber immer mit der Gruppe 0.
 # Ein 'chown 1654:1654' wuerde dort ins Leere laufen: die zufaellige UID ist nicht Mitglied der
 # Gruppe 1654 und kann nicht schreiben. Deshalb Gruppe 0 + Gruppenrechte (chgrp -R 0 / chmod g=u).
-# Fuer Docker/Kubernetes mit UID 1654 funktioniert dieselbe Regel, weil der Eigentuemer seine
-# Rechte behaelt.
+#
+# Fuer Docker/Kubernetes (dein VPS) braucht der Prozess die Gruppe 0 aber EXPLIZIT: 'USER 1654'
+# ohne Gruppe laesst den Prozess mit primärer Gruppe 1654 laufen, und 'chmod g=u' gibt die
+# Schreibrechte an Gruppe 0 - der Prozess gehoert nicht dazu und bekommt 'Access denied' auf
+# /data/keys. 'USER 1654:0' setzt die primäre Gruppe auf 0 und deckt damit beide Welten ab.
 RUN mkdir -p /data/keys /app && \
     chgrp -R 0 /data /app && \
     chmod -R g=u /data /app
@@ -103,7 +106,7 @@ RUN mkdir -p /data/keys /app && \
 VOLUME ["/data"]
 
 # Ohne Volume sind alle erfassten Meldungen beim Containerwechsel weg - ins README aufnehmen.
-USER 1654
+USER 1654:0
 
 EXPOSE 8080
 
